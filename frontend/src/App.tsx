@@ -24,8 +24,11 @@ export default function App() {
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/clients" element={<Clients />} />
-                <Route path="/clients/:id" element={<ClientDetail />} />
+                {/* Admin y Abogado only */}
+                <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'ABOGADO']} />}>
+                  <Route path="/clients" element={<Clients />} />
+                  <Route path="/clients/:id" element={<ClientDetail />} />
+                </Route>
                 {/* Admin only */}
                 <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                   <Route path="/users" element={<Users />} />

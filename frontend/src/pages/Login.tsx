@@ -175,16 +175,7 @@ export function Login() {
               )}
             </button>
           </form>
-
-          {/* Demo credentials hint */}
-          <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10">
-            <p className="text-white/50 text-xs text-center font-medium mb-2">Credenciales de ejemplo</p>
-            <div className="space-y-1 text-xs text-white/40 text-center">
-              <p>admin@estudiojuridico.com / Admin123!</p>
-            </div>
-          </div>
         </div>
-
         <p className="text-center text-white/30 text-xs mt-6">
           © {new Date().getFullYear()} Estudio Jurídico. Todos los derechos reservados.
         </p>
