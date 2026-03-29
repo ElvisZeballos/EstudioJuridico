@@ -1,0 +1,365 @@
+import { useState, useEffect, FormEvent } from 'react';
+import { usersApi } from '../services/api';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input, Select } from '../components/ui/Input';
+import { Modal, ConfirmModal } from '../components/ui/Modal';
+import type { User, UserFormData, Role } from '../types';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
+
+const emptyForm: UserFormData & { confirmPassword: string } = {
+  nombre: '',
+  apellido: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  role: 'CLIENTE',
+  dni: '',
+  telefono: '',
+  direccion: '',
+  fechaNacimiento: '',
+};
+
+const roleOptions = [
+  { value: 'ADMIN', label: 'Administrador' },
+  { value: 'ABOGADO', label: 'Abogado' },
+  { value: 'CLIENTE', label: 'Cliente' },
+];
+
+const roleBadgeClass: Record<Role, string> = {
+  ADMIN: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+  ABOGADO: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  CLIENTE: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+};
+
+export function Users() {
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  async function loadUsers() {
+    setIsLoading(true);
+    try {
+      const data = await usersApi.getAll();
+      setUsers(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const filtered = users.filter((u) => {
+    const q = searchTerm.toLowerCase();
+    return (
+      u.nombre.toLowerCase().includes(q) ||
+      u.apellido.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q)
+    );
+  });
+
+  function openCreate() {
+    setEditingUser(null);
+    setForm(emptyForm);
+    setFormError('');
+    setIsModalOpen(true);
+  }
+
+  function openEdit(user: User) {
+    setEditingUser(user);
+    setForm({
+      nombre: user.nombre,
+      apellido: user.apellido,
+      email: user.email,
+      password: '',
+      confirmPassword: '',
+      role: user.role,
+      dni: user.dni ?? '',
+      telefono: user.telefono ?? '',
+      direccion: user.direccion ?? '',
+      fechaNacimiento: user.fechaNacimiento ?? '',
+    });
+    setFormError('');
+    setIsModalOpen(true);
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setFormError('');
+
+    if (!form.nombre || !form.apellido || !form.email) {
+      setFormError('Nombre, apellido y email son obligatorios.');
+      return;
+    }
+
+    if (!editingUser && !form.password) {
+      setFormError('La contraseña es obligatoria para nuevos usuarios.');
+      return;
+    }
+
+    if (form.password && form.password !== form.confirmPassword) {
+      setFormError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { confirmPassword: _, ...data } = form;
+      if (editingUser) {
+        const updated = await usersApi.update(editingUser.id, data);
+        setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      } else {
+        const created = await usersApi.create(data);
+        setUsers((prev) => [created, ...prev]);
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setFormError(err.response?.data?.error || 'Error al guardar el usuario.');
+      } else {
+        setFormError('Error al guardar el usuario.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await usersApi.delete(deleteTarget.id);
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            {filtered.length} usuario{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <Button
+          onClick={openCreate}
+          icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          }
+        >
+          Nuevo Usuario
+        </Button>
+      </div>
+
+      {/* Search */}
+      <Input
+        placeholder="Buscar por nombre, email o rol..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        leftIcon={
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        }
+      />
+
+      {/* User list */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="text-center py-16">
+          <p className="text-gray-500 dark:text-gray-400">No se encontraron usuarios.</p>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((u) => (
+            <Card key={u.id} hover className="flex items-center gap-4 py-4">
+              {/* Avatar */}
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                {u.photoPath ? (
+                  <img
+                    src={`http://localhost:3001${u.photoPath}`}
+                    alt={u.nombre}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    {u.nombre[0]}{u.apellido[0]}
+                  </span>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {u.nombre} {u.apellido}
+                    {u.id === currentUser?.id && (
+                      <span className="ml-1 text-xs text-gray-400">(Tú)</span>
+                    )}
+                  </h3>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${roleBadgeClass[u.role]}`}>
+                    {u.role}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
+                    {u.active ? 'Activo' : 'Inactivo'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{u.email}</p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </Button>
+                {u.id !== currentUser?.id && (
+                  <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(u)}>
+                    <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+        size="xl"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmit} isLoading={isSaving}>
+              {editingUser ? 'Guardar cambios' : 'Crear usuario'}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && (
+            <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm border border-red-200 dark:border-red-800">
+              {formError}
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Nombre"
+              value={form.nombre}
+              onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+              required
+              placeholder="Juan"
+            />
+            <Input
+              label="Apellido"
+              value={form.apellido}
+              onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
+              required
+              placeholder="Pérez"
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              required
+              placeholder="juan@email.com"
+            />
+            <Select
+              label="Rol"
+              value={form.role ?? 'CLIENTE'}
+              onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as Role }))}
+              options={roleOptions}
+            />
+            <Input
+              label={editingUser ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+              required={!editingUser}
+              placeholder="••••••••"
+            />
+            <Input
+              label="Confirmar contraseña"
+              type="password"
+              value={form.confirmPassword}
+              onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+              placeholder="••••••••"
+            />
+            <Input
+              label="DNI"
+              value={form.dni}
+              onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
+              placeholder="12.345.678"
+            />
+            <Input
+              label="Teléfono"
+              value={form.telefono}
+              onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+              placeholder="+54 11 1234-5678"
+            />
+            <Input
+              label="Fecha de nacimiento"
+              type="date"
+              value={form.fechaNacimiento}
+              onChange={(e) => setForm((p) => ({ ...p, fechaNacimiento: e.target.value }))}
+            />
+            <Input
+              label="Dirección"
+              value={form.direccion}
+              onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
+              placeholder="Av. Corrientes 1234, CABA"
+            />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete confirmation */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Desactivar usuario"
+        message={`¿Estás seguro que deseas desactivar a ${deleteTarget?.nombre} ${deleteTarget?.apellido}?`}
+        confirmLabel="Desactivar"
+        isLoading={isDeleting}
+      />
+    </div>
+  );
+}
