@@ -2,8 +2,18 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import { encryptIfDefined, decryptIfDefined } from '../config/encryption';
+import { logger } from '../config/logger';
 
 const prisma = new PrismaClient();
+
+function actor(req: AuthRequest) {
+  return {
+    actorId: req.user?.id,
+    actorEmail: req.user?.email,
+    actorRole: req.user?.role,
+    ip: req.ip || req.socket.remoteAddress,
+  };
+}
 
 function decryptClient(client: {
   id: string;
@@ -36,38 +46,31 @@ export async function getAllClients(req: AuthRequest, res: Response): Promise<vo
   try {
     const whereClause: Record<string, unknown> = { active: true };
 
-    // Abogados only see their own clients
     if (req.user?.role === 'ABOGADO') {
       whereClause.abogadoId = req.user.id;
     }
 
-    // Clientes can only see their own profile
     if (req.user?.role === 'CLIENTE') {
       const clientProfile = await prisma.client.findFirst({
         where: { userId: req.user.id, active: true },
         include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
       });
 
-      if (!clientProfile) {
-        res.json([]);
-        return;
-      }
-
+      if (!clientProfile) { res.json([]); return; }
       res.json([decryptClient(clientProfile)]);
       return;
     }
 
     const clients = await prisma.client.findMany({
       where: whereClause,
-      include: {
-        abogado: { select: { id: true, nombre: true, apellido: true, email: true } },
-      },
+      include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
       orderBy: { createdAt: 'desc' },
     });
 
+    logger.info('CLIENTES: listado consultado', { ...actor(req), totalClientes: clients.length });
     res.json(clients.map(decryptClient));
   } catch (error) {
-    console.error('GetAllClients error:', error);
+    logger.error('CLIENTES: error al listar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -78,31 +81,31 @@ export async function getClientById(req: AuthRequest, res: Response): Promise<vo
 
     const client = await prisma.client.findUnique({
       where: { id },
-      include: {
-        abogado: { select: { id: true, nombre: true, apellido: true, email: true } },
-      },
+      include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
     });
 
     if (!client) {
+      logger.warn('CLIENTES: cliente no encontrado', { ...actor(req), targetClientId: id });
       res.status(404).json({ error: 'Client not found' });
       return;
     }
 
-    // Clientes can only view their own profile
     if (req.user?.role === 'CLIENTE' && client.userId !== req.user.id) {
+      logger.warn('CLIENTES: acceso denegado al perfil', { ...actor(req), targetClientId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
     }
 
-    // Abogados can only view their clients
     if (req.user?.role === 'ABOGADO' && client.abogadoId !== req.user.id) {
+      logger.warn('CLIENTES: abogado intentó acceder a cliente ajeno', { ...actor(req), targetClientId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
     }
 
+    logger.info('CLIENTES: perfil consultado', { ...actor(req), targetClientId: id, targetEmail: client.email });
     res.json(decryptClient(client));
   } catch (error) {
-    console.error('GetClientById error:', error);
+    logger.error('CLIENTES: error al consultar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -116,13 +119,11 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    // Abogados can only create clients assigned to themselves
     const assignedAbogadoId = req.user?.role === 'ABOGADO' ? req.user.id : abogadoId;
 
     const client = await prisma.client.create({
       data: {
-        nombre,
-        apellido,
+        nombre, apellido,
         dni: encryptIfDefined(dni) ?? dni,
         email,
         telefono: encryptIfDefined(telefono),
@@ -132,14 +133,20 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
         abogadoId: assignedAbogadoId || null,
         userId: userId || null,
       },
-      include: {
-        abogado: { select: { id: true, nombre: true, apellido: true, email: true } },
-      },
+      include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
+    });
+
+    logger.info('CLIENTES: cliente creado', {
+      ...actor(req),
+      nuevoClienteId: client.id,
+      nuevoClienteEmail: client.email,
+      nuevoClienteNombre: `${nombre} ${apellido}`,
+      abogadoAsignado: assignedAbogadoId || null,
     });
 
     res.status(201).json(decryptClient(client));
   } catch (error) {
-    console.error('CreateClient error:', error);
+    logger.error('CLIENTES: error al crear', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -155,14 +162,14 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    // Abogados can only edit their clients
     if (req.user?.role === 'ABOGADO' && existing.abogadoId !== req.user.id) {
+      logger.warn('CLIENTES: abogado intentó editar cliente ajeno', { ...actor(req), targetClientId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
     }
 
-    // Clientes cannot edit client records
     if (req.user?.role === 'CLIENTE') {
+      logger.warn('CLIENTES: cliente intentó editar registro', { ...actor(req), targetClientId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
     }
@@ -183,17 +190,25 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
       updateData.abogadoId = abogadoId || null;
     }
 
+    const camposModificados = Object.keys(updateData);
+
     const updated = await prisma.client.update({
       where: { id },
       data: updateData,
-      include: {
-        abogado: { select: { id: true, nombre: true, apellido: true, email: true } },
-      },
+      include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
+    });
+
+    logger.info('CLIENTES: cliente modificado', {
+      ...actor(req),
+      targetClientId: id,
+      targetEmail: existing.email,
+      targetNombre: `${existing.nombre} ${existing.apellido}`,
+      camposModificados,
     });
 
     res.json(decryptClient(updated));
   } catch (error) {
-    console.error('UpdateClient error:', error);
+    logger.error('CLIENTES: error al modificar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -204,19 +219,23 @@ export async function deleteClient(req: AuthRequest, res: Response): Promise<voi
 
     const existing = await prisma.client.findUnique({ where: { id } });
     if (!existing) {
+      logger.warn('CLIENTES: cliente a eliminar no encontrado', { ...actor(req), targetClientId: id });
       res.status(404).json({ error: 'Client not found' });
       return;
     }
 
-    // Soft delete
-    await prisma.client.update({
-      where: { id },
-      data: { active: false },
+    await prisma.client.update({ where: { id }, data: { active: false } });
+
+    logger.info('CLIENTES: cliente desactivado', {
+      ...actor(req),
+      targetClientId: id,
+      targetEmail: existing.email,
+      targetNombre: `${existing.nombre} ${existing.apellido}`,
     });
 
     res.json({ message: 'Client deactivated successfully' });
   } catch (error) {
-    console.error('DeleteClient error:', error);
+    logger.error('CLIENTES: error al desactivar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
 }

@@ -5,9 +5,12 @@ import path from 'path';
 
 dotenv.config();
 
+import { logger, logSystemInfo } from './config/logger';
+import { requestLogger } from './middleware/requestLogger';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import clientRoutes from './routes/clients';
+import juzgadoRoutes from './routes/juzgados';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -23,6 +26,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(requestLogger);
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -36,22 +40,33 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/clients', clientRoutes);
+app.use('/api/juzgados', juzgadoRoutes);
 
 // 404 handler
-app.use((_req, res) => {
+app.use((req, res) => {
+  logger.warn(`RUTA NO ENCONTRADA: ${req.method} ${req.url}`, { ip: req.ip });
   res.status(404).json({ error: 'Route not found' });
 });
 
 // Global error handler
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Unhandled error:', err);
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error('ERROR NO MANEJADO', {
+    message: err.message,
+    stack: err.stack,
+    method: req.method,
+    url: req.url,
+    ip: req.ip,
+  });
   res.status(500).json({ error: 'Internal server error' });
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 Estudio Juridico API running on http://localhost:${PORT}`);
-  console.log(`📁 Uploads directory: ${path.join(process.cwd(), 'uploads')}`);
-  console.log(`🌐 CORS enabled for: ${FRONTEND_URL}\n`);
+  logSystemInfo();
+  logger.info(`API escuchando en http://localhost:${PORT}`, {
+    port: PORT,
+    frontendUrl: FRONTEND_URL,
+    uploadsDir: path.join(process.cwd(), 'uploads'),
+  });
 });
 
 export default app;

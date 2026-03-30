@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 import { AuthRequest } from '../middleware/auth';
 import { encryptIfDefined, decryptIfDefined } from '../config/encryption';
+import { logger } from '../config/logger';
 
 const prisma = new PrismaClient();
 
@@ -20,32 +21,41 @@ function generateToken(user: { id: string; email: string; role: string }): strin
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
+  const ip = req.ip || req.socket.remoteAddress;
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
+      logger.warn('LOGIN fallido: campos faltantes', { ip });
       res.status(400).json({ error: 'Email and password are required' });
       return;
     }
 
+    logger.info('LOGIN intento', { email, ip });
+
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
+      logger.warn('LOGIN fallido: usuario no encontrado', { email, ip });
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
     if (!user.active) {
+      logger.warn('LOGIN fallido: cuenta desactivada', { email, ip, userId: user.id });
       res.status(401).json({ error: 'Account is disabled' });
       return;
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
+      logger.warn('LOGIN fallido: contraseña incorrecta', { email, ip, userId: user.id });
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
     const token = generateToken({ id: user.id, email: user.email, role: user.role });
+
+    logger.info('LOGIN exitoso', { email, userId: user.id, role: user.role, ip });
 
     res.json({
       token,
@@ -66,7 +76,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('LOGIN error interno', { error: (error as Error).message, stack: (error as Error).stack, ip });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -129,28 +139,31 @@ export async function register(req: Request, res: Response): Promise<void> {
 }
 
 export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  const ip = req.ip || req.socket.remoteAddress;
   try {
     const { email } = req.body;
     if (!email) {
+      logger.warn('FORGOT-PASSWORD: email faltante', { ip });
       res.status(400).json({ error: 'Email is required' });
       return;
     }
 
+    logger.info('FORGOT-PASSWORD: solicitud recibida', { email, ip });
+
     const user = await prisma.user.findUnique({ where: { email } });
-    // Siempre responder OK para no revelar si el email existe
     if (!user || !user.active) {
+      logger.info('FORGOT-PASSWORD: correo no registrado o inactivo (respuesta genérica)', { email, ip });
       res.json({ message: 'Si el correo está registrado, recibirás un enlace.' });
       return;
     }
 
-    // Invalidar tokens previos
     await prisma.passwordResetToken.updateMany({
       where: { userId: user.id, used: false },
       data: { used: true },
     });
 
     const token = uuidv4();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await prisma.passwordResetToken.create({
       data: { token, userId: user.id, expiresAt },
@@ -186,24 +199,41 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
       `,
     });
 
+    logger.info('FORGOT-PASSWORD: correo enviado', { email, userId: user.id, ip, expiresAt });
+
     res.json({ message: 'Si el correo está registrado, recibirás un enlace.' });
   } catch (error) {
-    console.error('ForgotPassword error:', error);
+    logger.error('FORGOT-PASSWORD: error interno', { error: (error as Error).message, stack: (error as Error).stack, ip });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
 
 export async function resetPassword(req: Request, res: Response): Promise<void> {
+  const ip = req.ip || req.socket.remoteAddress;
   try {
     const { token, password } = req.body;
     if (!token || !password) {
+      logger.warn('RESET-PASSWORD: campos faltantes', { ip });
       res.status(400).json({ error: 'Token and password are required' });
       return;
     }
 
     const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
 
-    if (!resetToken || resetToken.used || resetToken.expiresAt < new Date()) {
+    if (!resetToken) {
+      logger.warn('RESET-PASSWORD: token no encontrado', { ip });
+      res.status(400).json({ error: 'Token inválido o expirado' });
+      return;
+    }
+
+    if (resetToken.used) {
+      logger.warn('RESET-PASSWORD: token ya utilizado', { userId: resetToken.userId, ip });
+      res.status(400).json({ error: 'Token inválido o expirado' });
+      return;
+    }
+
+    if (resetToken.expiresAt < new Date()) {
+      logger.warn('RESET-PASSWORD: token expirado', { userId: resetToken.userId, expiredAt: resetToken.expiresAt, ip });
       res.status(400).json({ error: 'Token inválido o expirado' });
       return;
     }
@@ -220,9 +250,11 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
       data: { used: true },
     });
 
+    logger.info('RESET-PASSWORD: contraseña actualizada', { userId: resetToken.userId, ip });
+
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (error) {
-    console.error('ResetPassword error:', error);
+    logger.error('RESET-PASSWORD: error interno', { error: (error as Error).message, stack: (error as Error).stack, ip });
     res.status(500).json({ error: 'Internal server error' });
   }
 }

@@ -3,6 +3,8 @@ import type {
   AuthResponse,
   User,
   Client,
+  Juzgado,
+  JuzgadoFormData,
   DashboardStats,
   LoginFormData,
   UserFormData,
@@ -100,6 +102,22 @@ export const clientsApi = {
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/clients/${id}`).then((r) => r.data),
+};
+
+// Juzgado endpoints
+export const juzgadosApi = {
+  getAll: () => api.get<Juzgado[]>('/juzgados').then((r) => r.data),
+
+  getById: (id: string) => api.get<Juzgado>(`/juzgados/${id}`).then((r) => r.data),
+
+  create: (data: JuzgadoFormData) =>
+    api.post<Juzgado>('/juzgados', data).then((r) => r.data),
+
+  update: (id: string, data: Partial<JuzgadoFormData>) =>
+    api.put<Juzgado>(`/juzgados/${id}`, data).then((r) => r.data),
+
+  delete: (id: string) =>
+    api.delete<{ message: string }>(`/juzgados/${id}`).then((r) => r.data),
 };
 
 export default api;

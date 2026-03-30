@@ -51,6 +51,28 @@ export interface DashboardStats {
   recentClients: number;
 }
 
+export interface Juzgado {
+  id: string;
+  nombre: string;
+  tipo?: string | null;
+  direccion?: string | null;
+  ciudad?: string | null;
+  telefono?: string | null;
+  notas?: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JuzgadoFormData {
+  nombre: string;
+  tipo?: string;
+  direccion?: string;
+  ciudad?: string;
+  telefono?: string;
+  notas?: string;
+}
+
 export interface ApiError {
   error: string;
 }

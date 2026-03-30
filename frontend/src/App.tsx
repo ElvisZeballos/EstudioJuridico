@@ -11,6 +11,7 @@ import { Profile } from './pages/Profile';
 import { Clients } from './pages/Clients';
 import { ClientDetail } from './pages/ClientDetail';
 import { Users } from './pages/Users';
+import { Juzgados } from './pages/Juzgados';
 
 export default function App() {
   return (
@@ -36,6 +37,10 @@ export default function App() {
                 {/* Admin only */}
                 <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                   <Route path="/users" element={<Users />} />
+                </Route>
+                {/* Abogado only */}
+                <Route element={<ProtectedRoute allowedRoles={['ABOGADO']} />}>
+                  <Route path="/juzgados" element={<Juzgados />} />
                 </Route>
               </Route>
             </Route>
