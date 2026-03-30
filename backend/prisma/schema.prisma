@@ -14,10 +14,10 @@ enum Role {
 }
 
 model User {
-  id              String    @id @default(uuid())
-  email           String    @unique
+  id              String               @id @default(uuid())
+  email           String               @unique
   password        String
-  role            Role      @default(CLIENTE)
+  role            Role                 @default(CLIENTE)
   nombre          String
   apellido        String
   dni             String?
@@ -25,11 +25,22 @@ model User {
   direccion       String?
   fechaNacimiento String?
   photoPath       String?
-  active          Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  clients         Client[]  @relation("AbogadoClientes")
-  clientProfile   Client?   @relation("UserClientProfile")
+  active          Boolean              @default(true)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  clients         Client[]             @relation("AbogadoClientes")
+  clientProfile   Client?              @relation("UserClientProfile")
+  resetTokens     PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 model Client {

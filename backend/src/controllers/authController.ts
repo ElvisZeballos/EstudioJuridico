@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
+import nodemailer from 'nodemailer';
 import { AuthRequest } from '../middleware/auth';
 import { encryptIfDefined, decryptIfDefined } from '../config/encryption';
 
@@ -122,6 +124,105 @@ export async function register(req: Request, res: Response): Promise<void> {
     });
   } catch (error) {
     console.error('Register error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    // Siempre responder OK para no revelar si el email existe
+    if (!user || !user.active) {
+      res.json({ message: 'Si el correo está registrado, recibirás un enlace.' });
+      return;
+    }
+
+    // Invalidar tokens previos
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, used: false },
+      data: { used: true },
+    });
+
+    const token = uuidv4();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await prisma.passwordResetToken.create({
+      data: { token, userId: user.id, expiresAt },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: user.email,
+      subject: 'Restablecer contraseña - Estudio Jurídico',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+          <h2 style="color: #4f46e5;">Restablecer contraseña</h2>
+          <p>Hola <strong>${user.nombre}</strong>,</p>
+          <p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el botón para continuar:</p>
+          <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+            Restablecer contraseña
+          </a>
+          <p style="color:#888;font-size:13px;">Este enlace expira en 1 hora. Si no solicitaste esto, ignora este correo.</p>
+        </div>
+      `,
+    });
+
+    res.json({ message: 'Si el correo está registrado, recibirás un enlace.' });
+  } catch (error) {
+    console.error('ForgotPassword error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      res.status(400).json({ error: 'Token and password are required' });
+      return;
+    }
+
+    const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
+
+    if (!resetToken || resetToken.used || resetToken.expiresAt < new Date()) {
+      res.status(400).json({ error: 'Token inválido o expirado' });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    await prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { password: hashedPassword },
+    });
+
+    await prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { used: true },
+    });
+
+    res.json({ message: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    console.error('ResetPassword error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
