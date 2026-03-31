@@ -34,6 +34,11 @@ export function Clients() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
 
   const canEdit = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
   const isAdmin = user?.role === 'ADMIN';
@@ -52,6 +57,27 @@ export function Clients() {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleInviteClient(e: React.FormEvent) {
+    e.preventDefault();
+    setInviteError('');
+    setInviteSuccess('');
+    if (!inviteEmail) { setInviteError('El email es requerido.'); return; }
+    setIsInviting(true);
+    try {
+      await usersApi.invite({ email: inviteEmail, role: 'CLIENTE' });
+      setInviteSuccess(`Invitación enviada a ${inviteEmail}`);
+      setInviteEmail('');
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setInviteError(err.response?.data?.error || 'Error al enviar la invitación.');
+      } else {
+        setInviteError('Error de conexión.');
+      }
+    } finally {
+      setIsInviting(false);
     }
   }
 
@@ -152,18 +178,33 @@ export function Clients() {
             {filtered.length} cliente{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {canEdit && (
-          <Button
-            onClick={openCreate}
-            icon={
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            }
-          >
-            Nuevo Cliente
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {!isAdmin && canEdit && (
+            <Button
+              variant="outline"
+              onClick={() => { setInviteEmail(''); setInviteError(''); setInviteSuccess(''); setIsInviteOpen(true); }}
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              }
+            >
+              Invitar cliente
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              onClick={openCreate}
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              }
+            >
+              Nuevo Cliente
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Search */}
@@ -271,6 +312,47 @@ export function Clients() {
           ))}
         </div>
       )}
+
+      {/* Invite Modal (ABOGADO) */}
+      <Modal
+        isOpen={isInviteOpen}
+        onClose={() => setIsInviteOpen(false)}
+        title="Invitar cliente"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsInviteOpen(false)} disabled={isInviting}>
+              Cancelar
+            </Button>
+            <Button onClick={handleInviteClient} isLoading={isInviting}>
+              Enviar invitación
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleInviteClient} className="space-y-4">
+          {inviteError && (
+            <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm border border-red-200 dark:border-red-800">
+              {inviteError}
+            </div>
+          )}
+          {inviteSuccess && (
+            <div className="px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm border border-green-200 dark:border-green-800">
+              {inviteSuccess}
+            </div>
+          )}
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Se enviará un correo al cliente con un enlace para configurar su contraseña y acceder al sistema.
+          </p>
+          <Input
+            label="Email del cliente"
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            required
+            placeholder="cliente@email.com"
+          />
+        </form>
+      </Modal>
 
       {/* Create/Edit Modal */}
       <Modal

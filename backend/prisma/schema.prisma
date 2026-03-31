@@ -13,6 +13,13 @@ enum Role {
   CLIENTE
 }
 
+enum CasoEstado {
+  ACTIVO
+  EN_PROCESO
+  CERRADO
+  SUSPENDIDO
+}
+
 model User {
   id              String               @id @default(uuid())
   email           String               @unique
@@ -31,6 +38,7 @@ model User {
   clients         Client[]             @relation("AbogadoClientes")
   clientProfile   Client?              @relation("UserClientProfile")
   resetTokens     PasswordResetToken[]
+  casos           CasoAbogado[]
 }
 
 model Juzgado {
@@ -73,4 +81,39 @@ model Client {
   abogado         User?     @relation("AbogadoClientes", fields: [abogadoId], references: [id])
   userId          String?   @unique
   user            User?     @relation("UserClientProfile", fields: [userId], references: [id])
+  casos           CasoCliente[]
+}
+
+model Caso {
+  id          String       @id @default(uuid())
+  titulo      String
+  descripcion String?
+  estado      CasoEstado   @default(ACTIVO)
+  numero      String?
+  fechaInicio DateTime?
+  fechaCierre DateTime?
+  notas       String?
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  abogados    CasoAbogado[]
+  clientes    CasoCliente[]
+}
+
+model CasoAbogado {
+  casoId    String
+  abogadoId String
+  caso      Caso   @relation(fields: [casoId], references: [id])
+  abogado   User   @relation(fields: [abogadoId], references: [id])
+
+  @@id([casoId, abogadoId])
+}
+
+model CasoCliente {
+  casoId    String
+  clienteId String
+  caso      Caso   @relation(fields: [casoId], references: [id])
+  cliente   Client @relation(fields: [clienteId], references: [id])
+
+  @@id([casoId, clienteId])
 }

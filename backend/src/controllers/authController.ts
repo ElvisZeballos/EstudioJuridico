@@ -242,7 +242,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
 
     await prisma.user.update({
       where: { id: resetToken.userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, active: true },
     });
 
     await prisma.passwordResetToken.update({

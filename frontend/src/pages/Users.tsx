@@ -21,6 +21,8 @@ const emptyForm: UserFormData & { confirmPassword: string } = {
   fechaNacimiento: '',
 };
 
+const emptyInviteForm = { email: '', role: 'CLIENTE' as Role };
+
 const roleOptions = [
   { value: 'ADMIN', label: 'Administrador' },
   { value: 'ABOGADO', label: 'Abogado' },
@@ -39,12 +41,17 @@ export function Users() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [inviteForm, setInviteForm] = useState(emptyInviteForm);
   const [isSaving, setIsSaving] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -72,11 +79,33 @@ export function Users() {
     );
   });
 
-  function openCreate() {
-    setEditingUser(null);
-    setForm(emptyForm);
-    setFormError('');
-    setIsModalOpen(true);
+  function openInvite() {
+    setInviteForm(emptyInviteForm);
+    setInviteError('');
+    setInviteSuccess('');
+    setIsInviteOpen(true);
+  }
+
+  async function handleInvite(e: FormEvent) {
+    e.preventDefault();
+    setInviteError('');
+    setInviteSuccess('');
+    if (!inviteForm.email) { setInviteError('El email es requerido.'); return; }
+    setIsInviting(true);
+    try {
+      await usersApi.invite({ email: inviteForm.email, role: inviteForm.role });
+      setInviteSuccess(`Invitación enviada a ${inviteForm.email}`);
+      setInviteForm(emptyInviteForm);
+      loadUsers();
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setInviteError(err.response?.data?.error || 'Error al enviar la invitación.');
+      } else {
+        setInviteError('Error de conexión.');
+      }
+    } finally {
+      setIsInviting(false);
+    }
   }
 
   function openEdit(user: User) {
@@ -163,14 +192,14 @@ export function Users() {
           </p>
         </div>
         <Button
-          onClick={openCreate}
+          onClick={openInvite}
           icon={
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           }
         >
-          Nuevo Usuario
+          Invitar Usuario
         </Button>
       </div>
 
@@ -228,8 +257,8 @@ export function Users() {
                   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${roleBadgeClass[u.role]}`}>
                     {u.role}
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
-                    {u.active ? 'Activo' : 'Inactivo'}
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'}`}>
+                    {u.active ? 'Activo' : 'Invitado'}
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{u.email}</p>
@@ -255,7 +284,54 @@ export function Users() {
         </div>
       )}
 
-      {/* Create/Edit Modal */}
+      {/* Invite Modal */}
+      <Modal
+        isOpen={isInviteOpen}
+        onClose={() => setIsInviteOpen(false)}
+        title="Invitar usuario"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsInviteOpen(false)} disabled={isInviting}>
+              Cancelar
+            </Button>
+            <Button onClick={handleInvite} isLoading={isInviting}>
+              Enviar invitación
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleInvite} className="space-y-4">
+          {inviteError && (
+            <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm border border-red-200 dark:border-red-800">
+              {inviteError}
+            </div>
+          )}
+          {inviteSuccess && (
+            <div className="px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm border border-green-200 dark:border-green-800">
+              {inviteSuccess}
+            </div>
+          )}
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Se enviará un correo con un enlace para que el usuario configure su contraseña y active su cuenta.
+          </p>
+          <Input
+            label="Email"
+            type="email"
+            value={inviteForm.email}
+            onChange={(e) => setInviteForm((p) => ({ ...p, email: e.target.value }))}
+            required
+            placeholder="usuario@email.com"
+          />
+          <Select
+            label="Rol"
+            value={inviteForm.role}
+            onChange={(e) => setInviteForm((p) => ({ ...p, role: e.target.value as Role }))}
+            options={roleOptions}
+          />
+        </form>
+      </Modal>
+
+      {/* Edit Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

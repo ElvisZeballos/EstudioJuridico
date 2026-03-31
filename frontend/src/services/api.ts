@@ -9,6 +9,8 @@ import type {
   LoginFormData,
   UserFormData,
   ClientFormData,
+  Caso,
+  CasoFormData,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -64,6 +66,11 @@ export const authApi = {
 export const usersApi = {
   getAll: () => api.get<User[]>('/users').then((r) => r.data),
 
+  getAbogados: () => api.get<User[]>('/users/abogados').then((r) => r.data),
+
+  invite: (data: { email: string; role?: string }) =>
+    api.post<{ message: string; user: User }>('/users/invite', data).then((r) => r.data),
+
   getById: (id: string) => api.get<User>(`/users/${id}`).then((r) => r.data),
 
   create: (data: UserFormData) =>
@@ -118,6 +125,22 @@ export const juzgadosApi = {
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/juzgados/${id}`).then((r) => r.data),
+};
+
+// Caso endpoints
+export const casosApi = {
+  getAll: () => api.get<Caso[]>('/casos').then((r) => r.data),
+
+  getById: (id: string) => api.get<Caso>(`/casos/${id}`).then((r) => r.data),
+
+  create: (data: CasoFormData) =>
+    api.post<Caso>('/casos', data).then((r) => r.data),
+
+  update: (id: string, data: Partial<CasoFormData>) =>
+    api.put<Caso>(`/casos/${id}`, data).then((r) => r.data),
+
+  delete: (id: string) =>
+    api.delete<{ message: string }>(`/casos/${id}`).then((r) => r.data),
 };
 
 export default api;

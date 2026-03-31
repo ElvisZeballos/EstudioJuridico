@@ -12,6 +12,8 @@ import { Clients } from './pages/Clients';
 import { ClientDetail } from './pages/ClientDetail';
 import { Users } from './pages/Users';
 import { Juzgados } from './pages/Juzgados';
+import { Casos } from './pages/Casos';
+import { CasoDetail } from './pages/CasoDetail';
 
 export default function App() {
   return (
@@ -41,6 +43,11 @@ export default function App() {
                 {/* Abogado only */}
                 <Route element={<ProtectedRoute allowedRoles={['ABOGADO']} />}>
                   <Route path="/juzgados" element={<Juzgados />} />
+                </Route>
+                {/* Abogado y Cliente */}
+                <Route element={<ProtectedRoute allowedRoles={['ABOGADO', 'CLIENTE']} />}>
+                  <Route path="/casos" element={<Casos />} />
+                  <Route path="/casos/:id" element={<CasoDetail />} />
                 </Route>
               </Route>
             </Route>

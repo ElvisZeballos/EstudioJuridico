@@ -73,6 +73,42 @@ export interface JuzgadoFormData {
   notas?: string;
 }
 
+export type CasoEstado = 'ACTIVO' | 'EN_PROCESO' | 'CERRADO' | 'SUSPENDIDO';
+
+export interface Caso {
+  id: string;
+  titulo: string;
+  descripcion?: string | null;
+  estado: CasoEstado;
+  numero?: string | null;
+  fechaInicio?: string | null;
+  fechaCierre?: string | null;
+  notas?: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  abogados: {
+    abogadoId: string;
+    abogado: { id: string; nombre: string; apellido: string; email: string };
+  }[];
+  clientes: {
+    clienteId: string;
+    cliente: { id: string; nombre: string; apellido: string; email: string };
+  }[];
+}
+
+export interface CasoFormData {
+  titulo: string;
+  descripcion?: string;
+  estado?: CasoEstado;
+  numero?: string;
+  fechaInicio?: string;
+  fechaCierre?: string;
+  notas?: string;
+  abogadoIds: string[];
+  clienteIds: string[];
+}
+
 export interface ApiError {
   error: string;
 }

@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
+import nodemailer from 'nodemailer';
 import { AuthRequest } from '../middleware/auth';
 import { encryptIfDefined, decryptIfDefined } from '../config/encryption';
 import { logger } from '../config/logger';
@@ -235,6 +237,94 @@ export async function deleteUser(req: AuthRequest, res: Response): Promise<void>
     res.json({ message: 'User deactivated successfully' });
   } catch (error) {
     logger.error('USUARIOS: error al desactivar', { ...actor(req), error: (error as Error).message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function inviteUser(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { email, role } = req.body;
+    const actorRole = req.user?.role;
+
+    if (!email) {
+      res.status(400).json({ error: 'El email es requerido' });
+      return;
+    }
+
+    // ABOGADO can only invite CLIENTEs
+    const assignedRole = actorRole === 'ABOGADO' ? 'CLIENTE' : (role || 'CLIENTE');
+    const validRoles = ['ADMIN', 'ABOGADO', 'CLIENTE'];
+    if (!validRoles.includes(assignedRole)) {
+      res.status(400).json({ error: 'Rol inválido' });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      res.status(409).json({ error: 'El email ya está registrado' });
+      return;
+    }
+
+    const placeholderPassword = await bcrypt.hash(uuidv4(), 12);
+    const nombrePlaceholder = email.split('@')[0];
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: placeholderPassword,
+        nombre: nombrePlaceholder,
+        apellido: '-',
+        role: assignedRole as 'ADMIN' | 'ABOGADO' | 'CLIENTE',
+        active: false,
+      },
+      select: {
+        id: true, email: true, role: true, nombre: true, apellido: true,
+        dni: true, telefono: true, direccion: true, fechaNacimiento: true,
+        photoPath: true, active: true, createdAt: true, updatedAt: true,
+      },
+    });
+
+    // Create invitation token (reuses PasswordResetToken table)
+    const token = uuidv4();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    await prisma.passwordResetToken.create({ data: { token, userId: user.id, expiresAt } });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const setupLink = `${frontendUrl}/reset-password?token=${token}`;
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: 'Bienvenido al Estudio Jurídico — Configura tu cuenta',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+          <h2 style="color: #4f46e5;">Bienvenido al Estudio Jurídico</h2>
+          <p>Has sido invitado a acceder al sistema. Para configurar tu contraseña y activar tu cuenta, haz clic en el botón:</p>
+          <a href="${setupLink}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+            Configurar contraseña
+          </a>
+          <p style="color:#888;font-size:13px;">Este enlace expira en 7 días. Si no esperabas este correo, puedes ignorarlo.</p>
+        </div>
+      `,
+    });
+
+    logger.info('USUARIOS: invitación enviada', {
+      ...actor(req),
+      nuevoUserId: user.id,
+      nuevoEmail: email,
+      nuevoRol: assignedRole,
+    });
+
+    res.status(201).json({ message: 'Invitación enviada correctamente', user: decryptUser(user) });
+  } catch (error) {
+    logger.error('USUARIOS: error al invitar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
