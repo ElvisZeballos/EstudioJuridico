@@ -12,6 +12,8 @@ import userRoutes from './routes/users';
 import clientRoutes from './routes/clients';
 import juzgadoRoutes from './routes/juzgados';
 import casoRoutes from './routes/casos';
+import movimientoRoutes from './routes/movimientos';
+import casoNovedadesRoutes from './routes/casoNovedades';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,6 +45,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/juzgados', juzgadoRoutes);
 app.use('/api/casos', casoRoutes);
+app.use('/api/movimientos', movimientoRoutes);
+app.use('/api/casos/:casoId/novedades', casoNovedadesRoutes);
 
 // 404 handler
 app.use((req, res) => {

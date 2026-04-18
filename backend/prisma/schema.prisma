@@ -20,6 +20,11 @@ enum CasoEstado {
   SUSPENDIDO
 }
 
+enum TipoMovimiento {
+  INGRESO
+  EGRESO
+}
+
 model User {
   id              String               @id @default(uuid())
   email           String               @unique
@@ -39,6 +44,9 @@ model User {
   clientProfile   Client?              @relation("UserClientProfile")
   resetTokens     PasswordResetToken[]
   casos           CasoAbogado[]
+  movimientos     Movimiento[]         @relation("AbogadoMovimientos")
+  historialAutor  CasoHistorial[]      @relation("HistorialAutor")
+  novedades       CasoNovedad[]        @relation("NovedadAutor")
 }
 
 model Juzgado {
@@ -52,6 +60,7 @@ model Juzgado {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  casos     Caso[]
 }
 
 model PasswordResetToken {
@@ -85,19 +94,36 @@ model Client {
 }
 
 model Caso {
-  id          String       @id @default(uuid())
+  id          String         @id @default(uuid())
   titulo      String
   descripcion String?
-  estado      CasoEstado   @default(ACTIVO)
+  estado      CasoEstado     @default(ACTIVO)
   numero      String?
   fechaInicio DateTime?
   fechaCierre DateTime?
   notas       String?
-  active      Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  juzgadoId   String?
+  juzgado     Juzgado?       @relation(fields: [juzgadoId], references: [id])
   abogados    CasoAbogado[]
   clientes    CasoCliente[]
+  movimientos Movimiento[]
+  historial   CasoHistorial[]
+  novedades   CasoNovedad[]
+}
+
+model CasoHistorial {
+  id           String   @id @default(uuid())
+  casoId       String
+  caso         Caso     @relation(fields: [casoId], references: [id])
+  usuarioId    String
+  usuario      User     @relation("HistorialAutor", fields: [usuarioId], references: [id])
+  campo        String
+  valorAntes   String?
+  valorDespues String?
+  createdAt    DateTime @default(now())
 }
 
 model CasoAbogado {
@@ -116,4 +142,34 @@ model CasoCliente {
   cliente   Client @relation(fields: [clienteId], references: [id])
 
   @@id([casoId, clienteId])
+}
+
+model Movimiento {
+  id         String         @id @default(uuid())
+  casoId     String
+  caso       Caso           @relation(fields: [casoId], references: [id])
+  abogadoId  String
+  abogado    User           @relation("AbogadoMovimientos", fields: [abogadoId], references: [id])
+  tipo       TipoMovimiento
+  concepto   String
+  monto      Decimal        @db.Decimal(10, 2)
+  fecha      DateTime
+  notas      String?
+  active     Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+model CasoNovedad {
+  id         String   @id @default(uuid())
+  casoId     String
+  caso       Caso     @relation(fields: [casoId], references: [id])
+  autorId    String
+  autor      User     @relation("NovedadAutor", fields: [autorId], references: [id])
+  titulo     String
+  contenido  String
+  fecha      DateTime
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

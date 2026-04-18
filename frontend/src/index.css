@@ -5,17 +5,20 @@
 @layer base {
   * {
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html {
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white;
     transition: background-color 0.3s ease, color 0.3s ease;
+    overscroll-behavior: none;
   }
 
   /* Custom scrollbar */
@@ -49,5 +52,18 @@
 
   .glass-dark {
     @apply bg-black/10 backdrop-blur-md border border-white/10;
+  }
+
+  /* Safe area utilities for iPhone notch / home indicator */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom);
   }
 }

@@ -3,18 +3,18 @@ export const styles = {
   page: 'space-y-8',
 
   // Welcome banner
-  banner: 'relative overflow-hidden bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-8 shadow-xl',
+  banner: 'relative overflow-hidden bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-5 sm:p-8 shadow-xl',
   bannerBlobTop: 'absolute -top-10 -right-10 w-60 h-60 bg-white/10 rounded-full blur-3xl',
   bannerBlobBottom: 'absolute -bottom-10 -left-10 w-60 h-60 bg-purple-400/20 rounded-full blur-3xl',
   bannerContent: 'relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4',
   bannerGreeting: 'text-indigo-200 text-sm font-medium',
   bannerName: 'text-2xl sm:text-3xl font-bold text-white mt-1',
-  bannerBadgeRow: 'flex items-center gap-2 mt-2',
+  bannerBadgeRow: 'flex items-center gap-2 mt-2 flex-wrap',
   bannerRoleBadge: 'px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-sm',
-  bannerDate: 'text-indigo-200 text-xs',
-  bannerActions: 'flex gap-3',
-  bannerBtnSecondary: 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-all backdrop-blur-sm border border-white/20',
-  bannerBtnPrimary: 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-indigo-700 text-sm font-semibold hover:bg-indigo-50 transition-all shadow-lg',
+  bannerDate: 'text-indigo-200 text-xs hidden sm:inline',
+  bannerActions: 'flex flex-wrap gap-2 sm:gap-3',
+  bannerBtnSecondary: 'inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-all backdrop-blur-sm border border-white/20',
+  bannerBtnPrimary: 'inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white text-indigo-700 text-sm font-semibold hover:bg-indigo-50 transition-all shadow-lg',
 
   // Section titles
   sectionTitle: 'text-lg font-semibold text-gray-900 dark:text-white mb-4',

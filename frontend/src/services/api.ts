@@ -11,6 +11,12 @@ import type {
   ClientFormData,
   Caso,
   CasoFormData,
+  CasoHistorialEntry,
+  CasoNovedad,
+  CasoNovedadFormData,
+  Movimiento,
+  MovimientoFormData,
+  MovimientoStats,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -133,6 +139,9 @@ export const casosApi = {
 
   getById: (id: string) => api.get<Caso>(`/casos/${id}`).then((r) => r.data),
 
+  getHistorial: (id: string) =>
+    api.get<CasoHistorialEntry[]>(`/casos/${id}/historial`).then((r) => r.data),
+
   create: (data: CasoFormData) =>
     api.post<Caso>('/casos', data).then((r) => r.data),
 
@@ -141,6 +150,43 @@ export const casosApi = {
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/casos/${id}`).then((r) => r.data),
+};
+
+// Novedades de caso endpoints
+export const casoNovedadesApi = {
+  getByCaso: (casoId: string) =>
+    api.get<CasoNovedad[]>(`/casos/${casoId}/novedades`).then((r) => r.data),
+
+  create: (casoId: string, data: CasoNovedadFormData) =>
+    api.post<CasoNovedad>(`/casos/${casoId}/novedades`, data).then((r) => r.data),
+
+  update: (casoId: string, id: string, data: Partial<CasoNovedadFormData>) =>
+    api.put<CasoNovedad>(`/casos/${casoId}/novedades/${id}`, data).then((r) => r.data),
+
+  delete: (casoId: string, id: string) =>
+    api.delete<{ message: string }>(`/casos/${casoId}/novedades/${id}`).then((r) => r.data),
+};
+
+// Movimiento endpoints
+export const movimientosApi = {
+  getAll: () => api.get<Movimiento[]>('/movimientos').then((r) => r.data),
+
+  getStats: () => api.get<MovimientoStats>('/movimientos/stats').then((r) => r.data),
+
+  getByCaso: (casoId: string) =>
+    api.get<Movimiento[]>(`/movimientos/caso/${casoId}`).then((r) => r.data),
+
+  getStatsByCaso: (casoId: string) =>
+    api.get<MovimientoStats>(`/movimientos/caso/${casoId}/stats`).then((r) => r.data),
+
+  create: (data: MovimientoFormData) =>
+    api.post<Movimiento>('/movimientos', data).then((r) => r.data),
+
+  update: (id: string, data: Partial<MovimientoFormData>) =>
+    api.put<Movimiento>(`/movimientos/${id}`, data).then((r) => r.data),
+
+  delete: (id: string) =>
+    api.delete<{ message: string }>(`/movimientos/${id}`).then((r) => r.data),
 };
 
 export default api;

@@ -25,6 +25,14 @@ const casoInclude = {
       cliente: { select: { id: true, nombre: true, apellido: true, email: true } },
     },
   },
+  juzgado: { select: { id: true, nombre: true, ciudad: true } },
+};
+
+const ESTADO_LABELS: Record<string, string> = {
+  ACTIVO: 'Activo',
+  EN_PROCESO: 'En proceso',
+  CERRADO: 'Cerrado',
+  SUSPENDIDO: 'Suspendido',
 };
 
 export async function getAllCasos(req: AuthRequest, res: Response): Promise<void> {
@@ -93,9 +101,43 @@ export async function getCasoById(req: AuthRequest, res: Response): Promise<void
   }
 }
 
+export async function getCasoHistorial(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { role, id: userId } = req.user!;
+
+    const caso = await prisma.caso.findUnique({ where: { id }, include: { abogados: true } });
+    if (!caso || !caso.active) {
+      res.status(404).json({ error: 'Caso no encontrado' });
+      return;
+    }
+
+    if (role === 'ABOGADO') {
+      const isAssigned = caso.abogados.some((a) => a.abogadoId === userId);
+      if (!isAssigned) {
+        res.status(403).json({ error: 'Acceso denegado' });
+        return;
+      }
+    }
+
+    const historial = await prisma.casoHistorial.findMany({
+      where: { casoId: id },
+      include: {
+        usuario: { select: { id: true, nombre: true, apellido: true, email: true, role: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(historial);
+  } catch (error) {
+    logger.error('CASOS: error al consultar historial', { ...actor(req), error: (error as Error).message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export async function createCaso(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds } = req.body;
+    const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId } = req.body;
 
     if (!titulo) {
       res.status(400).json({ error: 'El título es requerido' });
@@ -119,6 +161,7 @@ export async function createCaso(req: AuthRequest, res: Response): Promise<void>
         fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
         fechaCierre: fechaCierre ? new Date(fechaCierre) : null,
         notas: notas || null,
+        juzgadoId: juzgadoId || null,
         abogados: {
           create: abogadoIds.map((abogadoId: string) => ({ abogadoId })),
         },
@@ -140,7 +183,7 @@ export async function createCaso(req: AuthRequest, res: Response): Promise<void>
 export async function updateCaso(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds } = req.body;
+    const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId } = req.body;
     const { role, id: userId } = req.user!;
 
     const existing = await prisma.caso.findUnique({ where: { id }, include: casoInclude });
@@ -157,17 +200,68 @@ export async function updateCaso(req: AuthRequest, res: Response): Promise<void>
       }
     }
 
+    // Detect changes for audit trail
+    const changes: Array<{ campo: string; valorAntes: string | null; valorDespues: string | null }> = [];
+
+    if (estado !== undefined && estado !== existing.estado) {
+      changes.push({
+        campo: 'Estado',
+        valorAntes: ESTADO_LABELS[existing.estado] ?? existing.estado,
+        valorDespues: ESTADO_LABELS[estado] ?? estado,
+      });
+    }
+
+    if (numero !== undefined && (numero || null) !== existing.numero) {
+      changes.push({
+        campo: 'Nurej',
+        valorAntes: existing.numero ?? null,
+        valorDespues: numero || null,
+      });
+    }
+
+    if (juzgadoId !== undefined && (juzgadoId || null) !== existing.juzgadoId) {
+      const [anteriorJuzgado, nuevoJuzgado] = await Promise.all([
+        existing.juzgadoId
+          ? prisma.juzgado.findUnique({ where: { id: existing.juzgadoId }, select: { nombre: true } })
+          : null,
+        juzgadoId
+          ? prisma.juzgado.findUnique({ where: { id: juzgadoId }, select: { nombre: true } })
+          : null,
+      ]);
+      changes.push({
+        campo: 'Juzgado',
+        valorAntes: anteriorJuzgado?.nombre ?? null,
+        valorDespues: nuevoJuzgado?.nombre ?? null,
+      });
+    }
+
+    if (abogadoIds && Array.isArray(abogadoIds)) {
+      const anteriorIds = existing.abogados.map((a) => a.abogadoId).sort();
+      const nuevoIds = [...abogadoIds].sort();
+      if (JSON.stringify(anteriorIds) !== JSON.stringify(nuevoIds)) {
+        const [anteriorUsers, nuevoUsers] = await Promise.all([
+          prisma.user.findMany({ where: { id: { in: anteriorIds } }, select: { nombre: true, apellido: true } }),
+          prisma.user.findMany({ where: { id: { in: nuevoIds } }, select: { nombre: true, apellido: true } }),
+        ]);
+        changes.push({
+          campo: 'Abogados',
+          valorAntes: anteriorUsers.map((u) => `${u.nombre} ${u.apellido}`).join(', ') || null,
+          valorDespues: nuevoUsers.map((u) => `${u.nombre} ${u.apellido}`).join(', ') || null,
+        });
+      }
+    }
+
     const updateData: Record<string, unknown> = {
       ...(titulo !== undefined && { titulo }),
       ...(descripcion !== undefined && { descripcion }),
       ...(estado !== undefined && { estado }),
-      ...(numero !== undefined && { numero }),
+      ...(numero !== undefined && { numero: numero || null }),
       ...(fechaInicio !== undefined && { fechaInicio: fechaInicio ? new Date(fechaInicio) : null }),
       ...(fechaCierre !== undefined && { fechaCierre: fechaCierre ? new Date(fechaCierre) : null }),
       ...(notas !== undefined && { notas }),
+      ...(juzgadoId !== undefined && { juzgadoId: juzgadoId || null }),
     };
 
-    // Update relations if provided
     if (abogadoIds && Array.isArray(abogadoIds)) {
       await prisma.casoAbogado.deleteMany({ where: { casoId: id } });
       updateData.abogados = { create: abogadoIds.map((abogadoId: string) => ({ abogadoId })) };
@@ -179,7 +273,24 @@ export async function updateCaso(req: AuthRequest, res: Response): Promise<void>
 
     const updated = await prisma.caso.update({ where: { id }, data: updateData, include: casoInclude });
 
-    logger.info('CASOS: modificado', { ...actor(req), casoId: id, camposModificados: Object.keys(updateData) });
+    // Persist audit trail entries
+    if (changes.length > 0) {
+      await prisma.casoHistorial.createMany({
+        data: changes.map((c) => ({
+          casoId: id,
+          usuarioId: userId!,
+          campo: c.campo,
+          valorAntes: c.valorAntes,
+          valorDespues: c.valorDespues,
+        })),
+      });
+    }
+
+    logger.info('CASOS: modificado', {
+      ...actor(req),
+      casoId: id,
+      cambios: changes.map((c) => c.campo),
+    });
     res.json(updated);
   } catch (error) {
     logger.error('CASOS: error al modificar', { ...actor(req), error: (error as Error).message });

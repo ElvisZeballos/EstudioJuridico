@@ -75,6 +75,36 @@ export interface JuzgadoFormData {
 
 export type CasoEstado = 'ACTIVO' | 'EN_PROCESO' | 'CERRADO' | 'SUSPENDIDO';
 
+export interface CasoNovedad {
+  id: string;
+  casoId: string;
+  autorId: string;
+  autor: { id: string; nombre: string; apellido: string; email: string; role: Role };
+  titulo: string;
+  contenido: string;
+  fecha: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CasoNovedadFormData {
+  titulo: string;
+  contenido: string;
+  fecha: string;
+}
+
+export interface CasoHistorialEntry {
+  id: string;
+  casoId: string;
+  usuarioId: string;
+  usuario: { id: string; nombre: string; apellido: string; email: string; role: Role };
+  campo: string;
+  valorAntes: string | null;
+  valorDespues: string | null;
+  createdAt: string;
+}
+
 export interface Caso {
   id: string;
   titulo: string;
@@ -87,6 +117,8 @@ export interface Caso {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  juzgadoId?: string | null;
+  juzgado?: { id: string; nombre: string; ciudad?: string | null } | null;
   abogados: {
     abogadoId: string;
     abogado: { id: string; nombre: string; apellido: string; email: string };
@@ -107,6 +139,43 @@ export interface CasoFormData {
   notas?: string;
   abogadoIds: string[];
   clienteIds: string[];
+  juzgadoId?: string;
+}
+
+export type TipoMovimiento = 'INGRESO' | 'EGRESO';
+
+export interface Movimiento {
+  id: string;
+  casoId: string;
+  caso: { id: string; titulo: string; numero?: string | null };
+  abogadoId: string;
+  abogado: { id: string; nombre: string; apellido: string; email: string };
+  tipo: TipoMovimiento;
+  concepto: string;
+  monto: number;
+  fecha: string;
+  notas?: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MovimientoFormData {
+  casoId: string;
+  tipo: TipoMovimiento;
+  concepto: string;
+  monto: number | string;
+  fecha: string;
+  notas?: string;
+}
+
+export interface MovimientoStats {
+  totalIngresos: number;
+  totalEgresos: number;
+  balance: number;
+  totalMovimientos: number;
+  cantIngresos: number;
+  cantEgresos: number;
 }
 
 export interface ApiError {
