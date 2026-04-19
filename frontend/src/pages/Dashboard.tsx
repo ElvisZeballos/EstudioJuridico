@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { clientsApi } from '../services/api';
+import { clientsApi, casoNovedadesApi, googleCalendarApi } from '../services/api';
 import { StatCard, Card } from '../components/ui/Card';
-import type { DashboardStats } from '../types';
+import { CalendarioAgenda } from '../components/CalendarioAgenda';
+import type { DashboardStats, CasoNovedad } from '../types';
 import { styles } from './Dashboard.styles';
 
 // Icons
@@ -53,15 +54,42 @@ const SKELETON_KEYS = [1, 2, 3, 4];
 
 export function Dashboard() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [agendadas, setAgendadas] = useState<CasoNovedad[]>([]);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleMsg, setGoogleMsg] = useState<string | null>(null);
 
   const canSeeStats = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
+
+  useEffect(() => {
+    // Handle Google OAuth callback params
+    if (searchParams.get('googleConnected')) {
+      setGoogleMsg('Google Calendar conectado correctamente.');
+      setGoogleConnected(true);
+      setSearchParams({});
+    } else if (searchParams.get('googleError')) {
+      setGoogleMsg('No se pudo conectar Google Calendar. Intentá de nuevo.');
+      setSearchParams({});
+    }
+  }, []);
 
   useEffect(() => {
     if (!canSeeStats) { setIsLoading(false); return; }
     clientsApi.getStats().then(setStats).catch(console.error).finally(() => setIsLoading(false));
   }, [canSeeStats]);
+
+  useEffect(() => {
+    casoNovedadesApi.getAgendadas().then(setAgendadas).catch(() => {});
+    googleCalendarApi.getStatus().then((s) => setGoogleConnected(s.connected)).catch(() => {});
+  }, []);
+
+  async function handleGoogleConnect() {
+    const { url } = await googleCalendarApi.getConnectUrl();
+    window.location.href = url;
+  }
+
 
   const now = new Date();
   const hour = now.getHours();
@@ -117,6 +145,41 @@ export function Dashboard() {
               <StatCard title="Nuevos (30d)"   value={stats?.recentClients ?? 0} color="amber" subtitle="últimos 30 días" icon={<IconTrend />} />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Google Calendar notification */}
+      {googleMsg && (
+        <div className="px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-sm flex items-center justify-between gap-3">
+          <span>{googleMsg}</span>
+          <button onClick={() => setGoogleMsg(null)} className="shrink-0 text-green-500 hover:text-green-700">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Calendario de agenda */}
+      {canSeeStats && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={styles.sectionTitle} style={{ marginBottom: 0 }}>Agenda</h2>
+            {!googleConnected && (
+              <button
+                onClick={handleGoogleConnect}
+                className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 transition-colors font-medium"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Conectar Google Calendar
+              </button>
+            )}
+          </div>
+          <Card>
+            <CalendarioAgenda novedades={agendadas} />
+          </Card>
         </div>
       )}
 

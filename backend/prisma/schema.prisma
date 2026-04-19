@@ -26,27 +26,28 @@ enum TipoMovimiento {
 }
 
 model User {
-  id              String               @id @default(uuid())
-  email           String               @unique
-  password        String
-  role            Role                 @default(CLIENTE)
-  nombre          String
-  apellido        String
-  dni             String?
-  telefono        String?
-  direccion       String?
-  fechaNacimiento String?
-  photoPath       String?
-  active          Boolean              @default(true)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  clients         Client[]             @relation("AbogadoClientes")
-  clientProfile   Client?              @relation("UserClientProfile")
-  resetTokens     PasswordResetToken[]
-  casos           CasoAbogado[]
-  movimientos     Movimiento[]         @relation("AbogadoMovimientos")
-  historialAutor  CasoHistorial[]      @relation("HistorialAutor")
-  novedades       CasoNovedad[]        @relation("NovedadAutor")
+  id                 String               @id @default(uuid())
+  email              String               @unique
+  password           String
+  role               Role                 @default(CLIENTE)
+  nombre             String
+  apellido           String
+  dni                String?
+  telefono           String?
+  direccion          String?
+  fechaNacimiento    String?
+  photoPath          String?
+  active             Boolean              @default(true)
+  googleRefreshToken String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  clients            Client[]             @relation("AbogadoClientes")
+  clientProfile      Client?              @relation("UserClientProfile")
+  resetTokens        PasswordResetToken[]
+  casos              CasoAbogado[]
+  movimientos        Movimiento[]         @relation("AbogadoMovimientos")
+  historialAutor     CasoHistorial[]      @relation("HistorialAutor")
+  novedades          CasoNovedad[]        @relation("NovedadAutor")
 }
 
 model Juzgado {
@@ -161,15 +162,17 @@ model Movimiento {
 }
 
 model CasoNovedad {
-  id         String   @id @default(uuid())
-  casoId     String
-  caso       Caso     @relation(fields: [casoId], references: [id])
-  autorId    String
-  autor      User     @relation("NovedadAutor", fields: [autorId], references: [id])
-  titulo     String
-  contenido  String
-  fecha      DateTime
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  casoId               String
+  caso                 Caso      @relation(fields: [casoId], references: [id])
+  autorId              String
+  autor                User      @relation("NovedadAutor", fields: [autorId], references: [id])
+  titulo               String
+  contenido            String
+  fecha                DateTime
+  fechaAgendada        DateTime?
+  googleCalendarEventId String?
+  active               Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }

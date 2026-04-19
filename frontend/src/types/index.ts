@@ -80,9 +80,12 @@ export interface CasoNovedad {
   casoId: string;
   autorId: string;
   autor: { id: string; nombre: string; apellido: string; email: string; role: Role };
+  caso?: { id: string; titulo: string };
   titulo: string;
   contenido: string;
   fecha: string;
+  fechaAgendada?: string | null;
+  googleCalendarEventId?: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -92,6 +95,7 @@ export interface CasoNovedadFormData {
   titulo: string;
   contenido: string;
   fecha: string;
+  fechaAgendada?: string | null;
 }
 
 export interface CasoHistorialEntry {

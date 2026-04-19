@@ -165,6 +165,21 @@ export const casoNovedadesApi = {
 
   delete: (casoId: string, id: string) =>
     api.delete<{ message: string }>(`/casos/${casoId}/novedades/${id}`).then((r) => r.data),
+
+  getAgendadas: () =>
+    api.get<CasoNovedad[]>('/novedades/agendadas').then((r) => r.data),
+};
+
+// Google Calendar endpoints
+export const googleCalendarApi = {
+  getStatus: () =>
+    api.get<{ connected: boolean }>('/google-calendar/status').then((r) => r.data),
+
+  getConnectUrl: () =>
+    api.get<{ url: string }>('/google-calendar/connect').then((r) => r.data),
+
+  disconnect: () =>
+    api.delete<{ message: string }>('/google-calendar/disconnect').then((r) => r.data),
 };
 
 // Movimiento endpoints

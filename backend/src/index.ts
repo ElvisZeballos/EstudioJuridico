@@ -14,6 +14,8 @@ import juzgadoRoutes from './routes/juzgados';
 import casoRoutes from './routes/casos';
 import movimientoRoutes from './routes/movimientos';
 import casoNovedadesRoutes from './routes/casoNovedades';
+import novedadesRoutes from './routes/novedades';
+import googleCalendarRoutes from './routes/googleCalendar';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -47,6 +49,8 @@ app.use('/api/juzgados', juzgadoRoutes);
 app.use('/api/casos', casoRoutes);
 app.use('/api/movimientos', movimientoRoutes);
 app.use('/api/casos/:casoId/novedades', casoNovedadesRoutes);
+app.use('/api/novedades', novedadesRoutes);
+app.use('/api/google-calendar', googleCalendarRoutes);
 
 // 404 handler
 app.use((req, res) => {

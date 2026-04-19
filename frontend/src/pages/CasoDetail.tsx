@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { casosApi, usersApi, clientsApi, juzgadosApi, casoNovedadesApi } from '../services/api';
+import { casosApi, usersApi, clientsApi, juzgadosApi, casoNovedadesApi, googleCalendarApi } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
@@ -54,14 +54,16 @@ export function CasoDetail() {
   const [error, setError] = useState('');
 
   // Novedades state
-  const emptyNovedad: CasoNovedadFormData = { titulo: '', contenido: '', fecha: new Date().toISOString().slice(0, 10) };
+  const emptyNovedad: CasoNovedadFormData = { titulo: '', contenido: '', fecha: new Date().toISOString().slice(0, 10), fechaAgendada: null };
   const [showNovedadModal, setShowNovedadModal] = useState(false);
   const [editingNovedad, setEditingNovedad] = useState<CasoNovedad | null>(null);
   const [novedadForm, setNovedadForm] = useState<CasoNovedadFormData>(emptyNovedad);
+  const [agendarToggle, setAgendarToggle] = useState(false);
   const [isSavingNovedad, setIsSavingNovedad] = useState(false);
   const [novedadError, setNovedadError] = useState('');
   const [deleteNovedad, setDeleteNovedad] = useState<string | null>(null);
   const [expandedNovedad, setExpandedNovedad] = useState<string | null>(null);
+  const [googleConnected, setGoogleConnected] = useState(false);
 
   // Edit modal state
   const [showEdit, setShowEdit] = useState(false);
@@ -97,6 +99,9 @@ export function CasoDetail() {
     load()
       .catch((err) => setError(err.response?.data?.error || 'Caso no encontrado.'))
       .finally(() => setIsLoading(false));
+    if (canEdit) {
+      googleCalendarApi.getStatus().then((s) => setGoogleConnected(s.connected)).catch(() => {});
+    }
   }, [id]);
 
   async function openEdit() {
@@ -157,13 +162,21 @@ export function CasoDetail() {
   function openCreateNovedad() {
     setEditingNovedad(null);
     setNovedadForm(emptyNovedad);
+    setAgendarToggle(false);
     setNovedadError('');
     setShowNovedadModal(true);
   }
 
   function openEditNovedad(n: CasoNovedad) {
     setEditingNovedad(n);
-    setNovedadForm({ titulo: n.titulo, contenido: n.contenido, fecha: n.fecha.slice(0, 10) });
+    const hasAgenda = !!n.fechaAgendada;
+    setAgendarToggle(hasAgenda);
+    setNovedadForm({
+      titulo: n.titulo,
+      contenido: n.contenido,
+      fecha: n.fecha.slice(0, 10),
+      fechaAgendada: hasAgenda ? n.fechaAgendada!.slice(0, 16) : null,
+    });
     setNovedadError('');
     setShowNovedadModal(true);
   }
@@ -173,11 +186,15 @@ export function CasoDetail() {
     if (!id) return;
     setNovedadError('');
     setIsSavingNovedad(true);
+    const payload: CasoNovedadFormData = {
+      ...novedadForm,
+      fechaAgendada: agendarToggle ? (novedadForm.fechaAgendada || null) : null,
+    };
     try {
       if (editingNovedad) {
-        await casoNovedadesApi.update(id, editingNovedad.id, novedadForm);
+        await casoNovedadesApi.update(id, editingNovedad.id, payload);
       } else {
-        await casoNovedadesApi.create(id, novedadForm);
+        await casoNovedadesApi.create(id, payload);
       }
       setShowNovedadModal(false);
       const updated = await casoNovedadesApi.getByCaso(id);
@@ -484,6 +501,16 @@ export function CasoDetail() {
                             </span>
                             <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
                             <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{n.autor.nombre} {n.autor.apellido}</span>
+                            {n.fechaAgendada && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-medium">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {new Date(n.fechaAgendada).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                {' '}
+                                {new Date(n.fechaAgendada).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -577,12 +604,56 @@ export function CasoDetail() {
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Detalle *</label>
                   <textarea
                     required
-                    rows={6}
+                    rows={5}
                     value={novedadForm.contenido}
                     onChange={(e) => setNovedadForm({ ...novedadForm, contenido: e.target.value })}
                     placeholder="Descripción detallada de la novedad, resumen de audiencia, resultado de diligencia..."
                     className={`${inputClass} resize-none`}
                   />
+                </div>
+
+                {/* Agenda section */}
+                <div className="col-span-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !agendarToggle;
+                      setAgendarToggle(next);
+                      if (!next) setNovedadForm({ ...novedadForm, fechaAgendada: null });
+                    }}
+                    className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    <div className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${agendarToggle ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                      <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${agendarToggle ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </div>
+                    Agendar evento
+                    {googleConnected && agendarToggle && (
+                      <span className="ml-1 flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-normal">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        Se sincronizará con Google Calendar
+                      </span>
+                    )}
+                  </button>
+
+                  {agendarToggle && (
+                    <div className="mt-3 flex flex-col gap-1">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Fecha y hora del evento *</label>
+                      <input
+                        required={agendarToggle}
+                        type="datetime-local"
+                        value={novedadForm.fechaAgendada ?? ''}
+                        onChange={(e) => setNovedadForm({ ...novedadForm, fechaAgendada: e.target.value || null })}
+                        className={inputClass}
+                      />
+                      {!googleConnected && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          Conectá Google Calendar desde tu perfil para sincronizar automáticamente.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
