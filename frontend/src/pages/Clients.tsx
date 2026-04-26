@@ -19,6 +19,7 @@ const emptyForm: ClientFormData = {
   fechaNacimiento: '',
   notas: '',
   abogadoId: '',
+  referencias: [],
 };
 
 export function Clients() {
@@ -40,12 +41,13 @@ export function Clients() {
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
 
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
-  const isAdmin = user?.role === 'ADMIN';
+  const canCreate = user?.role === 'ABOGADO';
+  const canEdit = canCreate || user?.role === 'AUXILIAR';
+  const isAbogado = user?.role === 'ABOGADO';
 
   useEffect(() => {
     loadClients();
-    if (isAdmin) loadAbogados();
+    if (isAbogado) loadAbogados();
   }, []);
 
   async function loadClients() {
@@ -119,9 +121,25 @@ export function Clients() {
       fechaNacimiento: client.fechaNacimiento ?? '',
       notas: client.notas ?? '',
       abogadoId: client.abogadoId ?? '',
+      referencias: client.referencias ?? [],
     });
     setFormError('');
     setIsModalOpen(true);
+  }
+
+  function addReferencia() {
+    setForm((p) => ({ ...p, referencias: [...p.referencias, { nombre: '', relacion: '', telefono: '' }] }));
+  }
+
+  function removeReferencia(index: number) {
+    setForm((p) => ({ ...p, referencias: p.referencias.filter((_, i) => i !== index) }));
+  }
+
+  function updateReferencia(index: number, field: 'nombre' | 'relacion' | 'telefono', value: string) {
+    setForm((p) => ({
+      ...p,
+      referencias: p.referencias.map((r, i) => (i === index ? { ...r, [field]: value } : r)),
+    }));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -179,7 +197,7 @@ export function Clients() {
           </p>
         </div>
         <div className="flex gap-2">
-          {!isAdmin && canEdit && (
+          {!isAbogado && canCreate && (
             <Button
               variant="outline"
               onClick={() => { setInviteEmail(''); setInviteError(''); setInviteSuccess(''); setIsInviteOpen(true); }}
@@ -192,7 +210,7 @@ export function Clients() {
               Invitar cliente
             </Button>
           )}
-          {canEdit && (
+          {canCreate && (
             <Button
               onClick={openCreate}
               icon={
@@ -241,12 +259,12 @@ export function Clients() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {searchTerm
                   ? 'Intenta con otros términos de búsqueda'
-                  : canEdit
+                  : canCreate
                   ? 'Crea tu primer cliente haciendo clic en "Nuevo Cliente"'
                   : 'Aún no tienes clientes asignados'}
               </p>
             </div>
-            {canEdit && !searchTerm && (
+            {canCreate && !searchTerm && (
               <Button onClick={openCreate} size="sm">Crear cliente</Button>
             )}
           </div>
@@ -300,7 +318,7 @@ export function Clients() {
                     </svg>
                   </Button>
                 )}
-                {isAdmin && (
+                {isAbogado && (
                   <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(client)}>
                     <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -426,7 +444,7 @@ export function Clients() {
               placeholder="Av. Corrientes 1234, CABA"
               containerClassName="sm:col-span-2"
             />
-            {isAdmin && (
+            {isAbogado && (
               <Select
                 label="Abogado asignado"
                 value={form.abogadoId ?? ''}
@@ -450,6 +468,63 @@ export function Clients() {
               containerClassName="sm:col-span-2"
             />
           </div>
+
+          {/* Referencias */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Referencias</p>
+              <button
+                type="button"
+                onClick={addReferencia}
+                className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Agregar referencia
+              </button>
+            </div>
+
+            {form.referencias.length === 0 && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin referencias agregadas.</p>
+            )}
+
+            {form.referencias.map((ref, index) => (
+              <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                <Input
+                  label="Nombre"
+                  value={ref.nombre}
+                  onChange={(e) => updateReferencia(index, 'nombre', e.target.value)}
+                  placeholder="María López"
+                />
+                <Input
+                  label="Relación"
+                  value={ref.relacion}
+                  onChange={(e) => updateReferencia(index, 'relacion', e.target.value)}
+                  placeholder="Cónyuge, padre, amigo..."
+                />
+                <div className="flex items-end gap-2">
+                  <Input
+                    label="Teléfono"
+                    value={ref.telefono}
+                    onChange={(e) => updateReferencia(index, 'telefono', e.target.value)}
+                    placeholder="+54 11 1234-5678"
+                    containerClassName="flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeReferencia(index)}
+                    className="mb-0.5 p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    title="Eliminar referencia"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </form>
       </Modal>
 
@@ -459,8 +534,8 @@ export function Clients() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Eliminar cliente"
-        message={`¿Estás seguro que deseas desactivar a ${deleteTarget?.nombre} ${deleteTarget?.apellido}? Esta acción puede revertirse.`}
-        confirmLabel="Desactivar"
+        message={`¿Estás seguro que deseas eliminar a ${deleteTarget?.nombre} ${deleteTarget?.apellido}? Esta acción puede revertirse.`}
+        confirmLabel="Eliminar"
         isLoading={isDeleting}
       />
     </div>

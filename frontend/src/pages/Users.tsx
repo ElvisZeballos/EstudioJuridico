@@ -27,22 +27,25 @@ const roleOptions = [
   { value: 'ADMIN', label: 'Administrador' },
   { value: 'ABOGADO', label: 'Abogado' },
   { value: 'CLIENTE', label: 'Cliente' },
+  { value: 'AUXILIAR', label: 'Auxiliar' },
 ];
 
 const roleBadgeClass: Record<Role, string> = {
   ADMIN: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
   ABOGADO: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
   CLIENTE: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  AUXILIAR: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
 };
 
 export function Users() {
   const { user: currentUser } = useAuth();
+  const isReadOnly = currentUser?.role === 'AUXILIAR';
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [inviteForm, setInviteForm] = useState(emptyInviteForm);
@@ -52,6 +55,7 @@ export function Users() {
   const [formError, setFormError] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
+  const [resetSent, setResetSent] = useState<string | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -108,23 +112,6 @@ export function Users() {
     }
   }
 
-  function openEdit(user: User) {
-    setEditingUser(user);
-    setForm({
-      nombre: user.nombre,
-      apellido: user.apellido,
-      email: user.email,
-      password: '',
-      confirmPassword: '',
-      role: user.role,
-      dni: user.dni ?? '',
-      telefono: user.telefono ?? '',
-      direccion: user.direccion ?? '',
-      fechaNacimiento: user.fechaNacimiento ?? '',
-    });
-    setFormError('');
-    setIsModalOpen(true);
-  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -167,6 +154,16 @@ export function Users() {
     }
   }
 
+  async function handleSendReset(userId: string) {
+    try {
+      await usersApi.sendPasswordReset(userId);
+      setResetSent(userId);
+      setTimeout(() => setResetSent(null), 3000);
+    } catch {
+      // silent
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return;
     setIsDeleting(true);
@@ -191,16 +188,18 @@ export function Users() {
             {filtered.length} usuario{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button
-          onClick={openInvite}
-          icon={
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          }
-        >
-          Invitar Usuario
-        </Button>
+        {!isReadOnly && (
+          <Button
+            onClick={openInvite}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            }
+          >
+            Invitar Usuario
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -265,20 +264,24 @@ export function Users() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2 shrink-0">
-                <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </Button>
-                {u.id !== currentUser?.id && (
+              {!isReadOnly && u.id !== currentUser?.id && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {resetSent === u.id ? (
+                    <span className="text-xs text-green-600 dark:text-green-400 font-medium px-2">Enviado ✓</span>
+                  ) : (
+                    <Button variant="ghost" size="sm" onClick={() => handleSendReset(u.id)} title="Enviar correo de restablecimiento">
+                      <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      </svg>
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(u)}>
                     <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </Card>
           ))}
         </div>
@@ -431,9 +434,9 @@ export function Users() {
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Desactivar usuario"
-        message={`¿Estás seguro que deseas desactivar a ${deleteTarget?.nombre} ${deleteTarget?.apellido}?`}
-        confirmLabel="Desactivar"
+        title="Eliminar usuario"
+        message={`¿Estás seguro que deseas eliminar a ${deleteTarget?.nombre} ${deleteTarget?.apellido}?`}
+        confirmLabel="Eliminar"
         isLoading={isDeleting}
       />
     </div>

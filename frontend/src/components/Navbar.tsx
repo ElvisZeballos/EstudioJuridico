@@ -4,6 +4,44 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { usePWA } from '../hooks/usePWA';
 
+function useSessionCountdown() {
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    function getExpiry(): number | null {
+      const token = sessionStorage.getItem('token');
+      if (!token) return null;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function tick() {
+      const expiry = getExpiry();
+      if (expiry === null) { setSecondsLeft(null); return; }
+      setSecondsLeft(Math.max(0, Math.floor((expiry - Date.now()) / 1000)));
+    }
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return secondsLeft;
+}
+
+function formatCountdown(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 interface NavbarProps {
   onMenuToggle: () => void;
 }
@@ -14,6 +52,7 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
   const { canInstall, install } = usePWA();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const secondsLeft = useSessionCountdown();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -29,6 +68,7 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
     ADMIN: 'Administrador',
     ABOGADO: 'Abogado',
     CLIENTE: 'Cliente',
+    AUXILIAR: 'Auxiliar',
   };
 
   return (
@@ -137,6 +177,14 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
                   Mi Perfil
                 </Link>
                 <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+                {secondsLeft !== null && (
+                  <div className={`flex items-center gap-3 px-4 py-2.5 text-sm ${secondsLeft < 300 ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Sesión: <span className="font-mono font-semibold">{formatCountdown(secondsLeft)}</span></span>
+                  </div>
+                )}
                 <button
                   onClick={() => { logout(); setDropdownOpen(false); }}
                   className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"

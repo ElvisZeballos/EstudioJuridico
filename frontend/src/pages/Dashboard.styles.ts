@@ -33,6 +33,19 @@ export const styles = {
   actionTitle: 'font-semibold text-gray-900 dark:text-white',
   actionSubtitle: 'text-sm text-gray-500 dark:text-gray-400 mt-0.5',
 
+  // Admin banner
+  adminBanner: 'relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-5 sm:p-8 shadow-xl',
+  adminBannerBlob: 'absolute -top-10 -right-10 w-60 h-60 bg-white/5 rounded-full blur-3xl',
+  adminBannerContent: 'relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4',
+  adminBannerLabel: 'text-slate-400 text-xs font-semibold uppercase tracking-widest',
+  adminBannerTitle: 'text-2xl sm:text-3xl font-bold text-white mt-1',
+  adminBannerMeta: 'flex items-center gap-3 mt-2 flex-wrap',
+  adminBannerVersion: 'px-2.5 py-0.5 rounded bg-slate-700 text-slate-300 text-xs font-mono',
+  adminBannerStatus: 'flex items-center gap-1.5 text-emerald-400 text-xs font-semibold',
+  adminBannerStatusDot: 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block',
+  adminBannerTime: 'text-slate-500 text-xs hidden sm:inline',
+  adminBannerBtn: 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium transition-all border border-slate-600',
+
   // System info
   infoHeader: 'flex items-center gap-3 mb-4',
   infoIconWrapper: 'w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center',

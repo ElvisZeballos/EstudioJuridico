@@ -1,9 +1,27 @@
 import { useState, useEffect } from 'react';
 import { juzgadosApi } from '../services/api';
+import { ConfirmModal } from '../components/ui/Modal';
 import type { Juzgado, JuzgadoFormData } from '../types';
 import axios from 'axios';
 
 const TIPOS = ['Civil', 'Penal', 'Laboral', 'Familiar', 'Mercantil', 'Administrativo', 'Otro'];
+
+const TIPO_KEYWORDS: { keywords: string[]; tipo: string }[] = [
+  { keywords: ['civil', 'comercial'], tipo: 'Civil' },
+  { keywords: ['penal', 'criminal', 'crimen'], tipo: 'Penal' },
+  { keywords: ['laboral', 'trabajo', 'obrero'], tipo: 'Laboral' },
+  { keywords: ['familiar', 'familia', 'niñez', 'adolescencia', 'menores'], tipo: 'Familiar' },
+  { keywords: ['mercantil'], tipo: 'Mercantil' },
+  { keywords: ['administrativo', 'contencioso'], tipo: 'Administrativo' },
+];
+
+function inferTipo(nombre: string): string {
+  const lower = nombre.toLowerCase();
+  for (const { keywords, tipo } of TIPO_KEYWORDS) {
+    if (keywords.some((kw) => lower.includes(kw))) return tipo;
+  }
+  return '';
+}
 
 const emptyForm: JuzgadoFormData = {
   nombre: '', tipo: '', direccion: '', ciudad: '', telefono: '', notas: '',
@@ -210,7 +228,11 @@ export function Juzgados() {
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nombre *</label>
                   <input
                     value={form.nombre}
-                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                    onChange={(e) => {
+                      const nombre = e.target.value;
+                      const inferred = inferTipo(nombre);
+                      setForm((p) => ({ ...p, nombre, tipo: inferred || p.tipo }));
+                    }}
                     required
                     placeholder="Ej: Juzgado 1° Civil"
                     className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -294,36 +316,14 @@ export function Juzgados() {
         </div>
       )}
 
-      {/* Modal confirmar eliminación */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Eliminar juzgado</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              ¿Eliminar <strong>{deleteConfirm.nombre}</strong>? Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        title="Eliminar juzgado"
+        message={`¿Eliminar "${deleteConfirm?.nombre}"? El juzgado dejará de mostrarse en el sistema. Esta acción puede revertirse.`}
+        confirmLabel="Eliminar"
+      />
     </div>
   );
 }

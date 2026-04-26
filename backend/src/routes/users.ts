@@ -7,6 +7,7 @@ import {
   createUser,
   inviteUser,
   uploadUserPhoto,
+  sendPasswordReset,
 } from '../controllers/userController';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { uploadPhoto } from '../middleware/upload';
@@ -19,8 +20,8 @@ router.use(authenticateToken);
 // Admin + Abogado: invite user by email
 router.post('/invite', requireRole('ADMIN', 'ABOGADO'), inviteUser);
 
-// Admin + Abogado: list abogados for form selectors
-router.get('/abogados', requireRole('ADMIN', 'ABOGADO'), async (req, res) => {
+// Admin + Abogado + Auxiliar: list abogados for form selectors
+router.get('/abogados', requireRole('ADMIN', 'ABOGADO', 'AUXILIAR'), async (req, res) => {
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
   const abogados = await prisma.user.findMany({
@@ -31,10 +32,11 @@ router.get('/abogados', requireRole('ADMIN', 'ABOGADO'), async (req, res) => {
   res.json(abogados);
 });
 
-// Admin only: list all users, create user, delete user
-router.get('/', requireRole('ADMIN'), getAllUsers);
+// Admin + Auxiliar: list all users (Auxiliar is read-only via frontend)
+router.get('/', requireRole('ADMIN', 'AUXILIAR'), getAllUsers);
 router.post('/', requireRole('ADMIN'), createUser);
 router.delete('/:id', requireRole('ADMIN'), deleteUser);
+router.post('/:id/reset-password', requireRole('ADMIN'), sendPasswordReset);
 
 // Any authenticated user (with access check inside controller)
 router.get('/:id', getUserById);

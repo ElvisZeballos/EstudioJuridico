@@ -16,6 +16,7 @@ import movimientoRoutes from './routes/movimientos';
 import casoNovedadesRoutes from './routes/casoNovedades';
 import novedadesRoutes from './routes/novedades';
 import googleCalendarRoutes from './routes/googleCalendar';
+import adminRoutes from './routes/admin';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -51,6 +52,7 @@ app.use('/api/movimientos', movimientoRoutes);
 app.use('/api/casos/:casoId/novedades', casoNovedadesRoutes);
 app.use('/api/novedades', novedadesRoutes);
 app.use('/api/google-calendar', googleCalendarRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use((req, res) => {

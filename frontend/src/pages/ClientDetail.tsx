@@ -146,6 +146,35 @@ export function ClientDetail() {
             </p>
           </div>
         )}
+
+        {client.referencias && client.referencias.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+            <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+              Referencias
+            </h3>
+            <div className="space-y-3">
+              {client.referencias.map((ref, i) => (
+                <div key={ref.id ?? i} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                  <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      {ref.nombre[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{ref.nombre}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{ref.relacion}</p>
+                  </div>
+                  <a
+                    href={`tel:${ref.telefono}`}
+                    className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+                  >
+                    {ref.telefono}
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Timestamps */}

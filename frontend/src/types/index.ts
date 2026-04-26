@@ -1,4 +1,4 @@
-export type Role = 'ADMIN' | 'ABOGADO' | 'CLIENTE';
+export type Role = 'ADMIN' | 'ABOGADO' | 'CLIENTE' | 'AUXILIAR';
 
 export interface User {
   id: string;
@@ -14,6 +14,13 @@ export interface User {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ClientReferencia {
+  id?: string;
+  nombre: string;
+  relacion: string;
+  telefono: string;
 }
 
 export interface Client {
@@ -37,6 +44,7 @@ export interface Client {
     email: string;
   } | null;
   userId?: string | null;
+  referencias: ClientReferencia[];
 }
 
 export interface AuthResponse {
@@ -73,7 +81,22 @@ export interface JuzgadoFormData {
   notas?: string;
 }
 
-export type CasoEstado = 'ACTIVO' | 'EN_PROCESO' | 'CERRADO' | 'SUSPENDIDO';
+export type CasoEstado = 'ACTIVO' | 'PENDIENTE' | 'CONCLUIDO' | 'ARCHIVADO';
+
+export interface CasoAbogadoContraparte {
+  id?: string;
+  nombre: string;
+  direccion?: string;
+  telefono?: string;
+}
+
+export interface CasoDemandado {
+  id?: string;
+  nombre: string;
+  domicilio?: string;
+  carnet?: string;
+  telefono?: string;
+}
 
 export interface CasoNovedad {
   id: string;
@@ -131,6 +154,8 @@ export interface Caso {
     clienteId: string;
     cliente: { id: string; nombre: string; apellido: string; email: string };
   }[];
+  abogadosContraparte: CasoAbogadoContraparte[];
+  demandados: CasoDemandado[];
 }
 
 export interface CasoFormData {
@@ -144,6 +169,8 @@ export interface CasoFormData {
   abogadoIds: string[];
   clienteIds: string[];
   juzgadoId?: string;
+  abogadosContraparte: CasoAbogadoContraparte[];
+  demandados: CasoDemandado[];
 }
 
 export type TipoMovimiento = 'INGRESO' | 'EGRESO';
@@ -182,6 +209,34 @@ export interface MovimientoStats {
   cantEgresos: number;
 }
 
+export interface AdminStats {
+  server: {
+    uptime: number;
+    nodeVersion: string;
+    env: string;
+    platform: string;
+    memory: { heapUsedMB: number; heapTotalMB: number; rssMB: number };
+  };
+  database: {
+    connected: boolean;
+    latencyMs: number;
+    provider: string;
+    url: string;
+  };
+  storage: {
+    uploadsDirMB: number;
+    diskAvailableGB: number | null;
+    diskTotalGB: number | null;
+  };
+  counts: {
+    totalUsers: number;
+    activeUsers: number;
+    totalClients: number;
+    totalCasos: number;
+  };
+  generatedAt: string;
+}
+
 export interface ApiError {
   error: string;
 }
@@ -213,4 +268,5 @@ export interface ClientFormData {
   fechaNacimiento?: string;
   notas?: string;
   abogadoId?: string;
+  referencias: ClientReferencia[];
 }

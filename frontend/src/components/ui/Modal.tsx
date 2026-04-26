@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 
 interface ModalProps {
@@ -104,6 +104,14 @@ export function ConfirmModal({
   confirmLabel = 'Confirmar',
   isLoading = false,
 }: ConfirmModalProps) {
+  const [typed, setTyped] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) setTyped('');
+  }, [isOpen]);
+
+  const canConfirm = typed.toUpperCase() === 'CONFIRMAR';
+
   return (
     <Modal
       isOpen={isOpen}
@@ -115,13 +123,28 @@ export function ConfirmModal({
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button variant="danger" onClick={onConfirm} isLoading={isLoading}>
+          <Button variant="danger" onClick={onConfirm} isLoading={isLoading} disabled={!canConfirm}>
             {confirmLabel}
           </Button>
         </>
       }
     >
-      <p className="text-gray-600 dark:text-gray-400">{message}</p>
+      <div className="space-y-4">
+        <p className="text-gray-600 dark:text-gray-400">{message}</p>
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+            Escribe <span className="font-semibold text-gray-700 dark:text-gray-300">CONFIRMAR</span> para continuar
+          </p>
+          <input
+            type="text"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="CONFIRMAR"
+            autoFocus
+            className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400"
+          />
+        </div>
+      </div>
     </Modal>
   );
 }

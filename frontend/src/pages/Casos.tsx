@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { casosApi, usersApi, clientsApi, juzgadosApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { ConfirmModal } from '../components/ui/Modal';
 import type { Caso, CasoEstado, CasoFormData, User, Client, Juzgado } from '../types';
 import axios from 'axios';
 
 const ESTADOS: { value: CasoEstado; label: string; color: string }[] = [
   { value: 'ACTIVO', label: 'Activo', color: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
-  { value: 'EN_PROCESO', label: 'En proceso', color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
-  { value: 'CERRADO', label: 'Cerrado', color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
-  { value: 'SUSPENDIDO', label: 'Suspendido', color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300' },
+  { value: 'PENDIENTE', label: 'Pendiente', color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300' },
+  { value: 'CONCLUIDO', label: 'Concluido', color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  { value: 'ARCHIVADO', label: 'Archivado', color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
 ];
 
 function estadoInfo(estado: CasoEstado) {
@@ -27,6 +28,8 @@ const emptyForm: CasoFormData = {
   abogadoIds: [],
   clienteIds: [],
   juzgadoId: '',
+  abogadosContraparte: [],
+  demandados: [],
 };
 
 export function Casos() {
@@ -405,6 +408,96 @@ export function Casos() {
                 </div>
               </div>
 
+              {/* Abogados de la contraparte */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Abogados de la contraparte</p>
+                  <button
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, abogadosContraparte: [...p.abogadosContraparte, { nombre: '', direccion: '', telefono: '' }] }))}
+                    className="flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Agregar
+                  </button>
+                </div>
+                {form.abogadosContraparte.length === 0 && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin abogados de la contraparte.</p>
+                )}
+                {form.abogadosContraparte.map((ab, i) => (
+                  <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Nombre</label>
+                      <input value={ab.nombre} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x) }))} placeholder="Dr. García" className={inputClass} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Dirección</label>
+                      <input value={ab.direccion ?? ''} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, direccion: e.target.value } : x) }))} placeholder="Av. Libertad 123" className={inputClass} />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Teléfono</label>
+                        <input value={ab.telefono ?? ''} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, telefono: e.target.value } : x) }))} placeholder="+591 7..." className={inputClass} />
+                      </div>
+                      <button type="button" onClick={() => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.filter((_, j) => j !== i) }))} className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Demandados */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Demandados</p>
+                  <button
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, demandados: [...p.demandados, { nombre: '', domicilio: '', carnet: '', telefono: '' }] }))}
+                    className="flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Agregar
+                  </button>
+                </div>
+                {form.demandados.length === 0 && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin demandados registrados.</p>
+                )}
+                {form.demandados.map((dem, i) => (
+                  <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Nombre</label>
+                      <input value={dem.nombre} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x) }))} placeholder="Juan Pérez" className={inputClass} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Domicilio</label>
+                      <input value={dem.domicilio ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, domicilio: e.target.value } : x) }))} placeholder="Calle falsa 123" className={inputClass} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Carnet</label>
+                      <input value={dem.carnet ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, carnet: e.target.value } : x) }))} placeholder="12345678" className={inputClass} />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Teléfono</label>
+                        <input value={dem.telefono ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, telefono: e.target.value } : x) }))} placeholder="+591 7..." className={inputClass} />
+                      </div>
+                      <button type="button" onClick={() => setForm((p) => ({ ...p, demandados: p.demandados.filter((_, j) => j !== i) }))} className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -434,36 +527,14 @@ export function Casos() {
         </div>
       )}
 
-      {/* Modal confirmar eliminación */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Eliminar caso</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              ¿Eliminar <strong>{deleteConfirm.titulo}</strong>? Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        title="Eliminar caso"
+        message={`¿Eliminar "${deleteConfirm?.titulo}"? El caso dejará de mostrarse en el sistema. Esta acción puede revertirse.`}
+        confirmLabel="Eliminar"
+      />
     </div>
   );
 }

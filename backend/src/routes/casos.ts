@@ -12,13 +12,13 @@ import {
 const router = Router();
 
 router.use(authenticateToken);
-router.use(requireRole('ABOGADO', 'CLIENTE'));
+router.use(requireRole('ABOGADO', 'CLIENTE', 'AUXILIAR'));
 
 router.get('/', getAllCasos);
 router.get('/:id/historial', getCasoHistorial);
 router.get('/:id', getCasoById);
 router.post('/', requireRole('ABOGADO'), createCaso);
-router.put('/:id', requireRole('ABOGADO'), updateCaso);
+router.put('/:id', requireRole('ABOGADO', 'AUXILIAR'), updateCaso);
 router.delete('/:id', requireRole('ABOGADO'), deleteCaso);
 
 export default router;

@@ -17,6 +17,7 @@ import type {
   Movimiento,
   MovimientoFormData,
   MovimientoStats,
+  AdminStats,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -26,12 +27,53 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor: attach JWT token
+// Token refresh state — shared across concurrent requests
+let isRefreshing = false;
+let refreshPromise: Promise<string> | null = null;
+
+function getTokenExpiry(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureFreshToken(currentToken: string): Promise<string> {
+  const expiry = getTokenExpiry(currentToken);
+  const now = Date.now();
+  // Refresh if less than 10 minutes remain and token is still valid
+  if (!expiry || expiry <= now || expiry - now > 10 * 60 * 1000) return currentToken;
+
+  if (!isRefreshing) {
+    isRefreshing = true;
+    refreshPromise = axios
+      .post<{ token: string }>(`${API_BASE}/api/auth/refresh`, {}, {
+        headers: { Authorization: `Bearer ${currentToken}` },
+      })
+      .then((r) => {
+        const newToken = r.data.token;
+        sessionStorage.setItem('token', newToken);
+        return newToken;
+      })
+      .catch(() => currentToken)
+      .finally(() => {
+        isRefreshing = false;
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise!;
+}
+
+// Request interceptor: attach JWT token, refresh if < 10 min remain
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
+  async (config) => {
+    const token = sessionStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      const fresh = await ensureFreshToken(token);
+      config.headers.Authorization = `Bearer ${fresh}`;
     }
     return config;
   },
@@ -43,8 +85,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -66,6 +108,9 @@ export const authApi = {
 
   resetPassword: (token: string, password: string) =>
     api.post<{ message: string }>('/auth/reset-password', { token, password }).then((r) => r.data),
+
+  refresh: () =>
+    api.post<{ token: string }>('/auth/refresh').then((r) => r.data),
 };
 
 // User endpoints
@@ -87,6 +132,9 @@ export const usersApi = {
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/users/${id}`).then((r) => r.data),
+
+  sendPasswordReset: (id: string) =>
+    api.post<{ message: string }>(`/users/${id}/reset-password`).then((r) => r.data),
 
   uploadPhoto: (id: string, file: File) => {
     const formData = new FormData();
@@ -202,6 +250,11 @@ export const movimientosApi = {
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/movimientos/${id}`).then((r) => r.data),
+};
+
+// Admin endpoints
+export const adminApi = {
+  getStats: () => api.get<AdminStats>('/admin/stats').then((r) => r.data),
 };
 
 export default api;

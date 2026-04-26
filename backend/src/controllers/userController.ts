@@ -49,14 +49,13 @@ export async function getAllUsers(req: AuthRequest, res: Response): Promise<void
     const users = await prisma.user.findMany({
       select: {
         id: true, email: true, role: true, nombre: true, apellido: true,
-        dni: true, telefono: true, direccion: true, fechaNacimiento: true,
         photoPath: true, active: true, createdAt: true, updatedAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
 
     logger.info('USUARIOS: listado consultado', { ...actor(req), totalUsuarios: users.length });
-    res.json(users.map(decryptUser));
+    res.json(users);
   } catch (error) {
     logger.error('USUARIOS: error al listar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
@@ -67,7 +66,7 @@ export async function getUserById(req: AuthRequest, res: Response): Promise<void
   try {
     const { id } = req.params;
 
-    if (req.user?.role !== 'ADMIN' && req.user?.id !== id) {
+    if (req.user?.id !== id) {
       logger.warn('USUARIOS: acceso denegado al perfil', { ...actor(req), targetUserId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
@@ -100,7 +99,7 @@ export async function updateUser(req: AuthRequest, res: Response): Promise<void>
   try {
     const { id } = req.params;
 
-    if (req.user?.role !== 'ADMIN' && req.user?.id !== id) {
+    if (req.user?.id !== id) {
       logger.warn('USUARIOS: intento de modificar usuario sin permiso', { ...actor(req), targetUserId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
@@ -165,7 +164,7 @@ export async function uploadUserPhoto(req: AuthRequest, res: Response): Promise<
   try {
     const { id } = req.params;
 
-    if (req.user?.role !== 'ADMIN' && req.user?.id !== id) {
+    if (req.user?.id !== id) {
       logger.warn('USUARIOS: intento de subir foto sin permiso', { ...actor(req), targetUserId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
@@ -237,6 +236,68 @@ export async function deleteUser(req: AuthRequest, res: Response): Promise<void>
     res.json({ message: 'User deactivated successfully' });
   } catch (error) {
     logger.error('USUARIOS: error al desactivar', { ...actor(req), error: (error as Error).message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function sendPasswordReset(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user || !user.active) {
+      res.status(404).json({ error: 'Usuario no encontrado' });
+      return;
+    }
+
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: id, used: false },
+      data: { used: true },
+    });
+
+    const token = uuidv4();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await prisma.passwordResetToken.create({
+      data: { token, userId: id, expiresAt },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: user.email,
+      subject: 'Restablecer contraseña - Estudio Jurídico',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+          <h2 style="color: #4f46e5;">Restablecer contraseña</h2>
+          <p>Hola <strong>${user.nombre}</strong>,</p>
+          <p>El administrador ha iniciado un restablecimiento de contraseña para tu cuenta. Haz clic en el botón para continuar:</p>
+          <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+            Restablecer contraseña
+          </a>
+          <p style="color:#888;font-size:13px;">Este enlace expira en 1 hora. Si no esperabas este correo, contáctanos.</p>
+        </div>
+      `,
+    });
+
+    logger.info('USUARIOS: correo de restablecimiento enviado por admin', {
+      ...actor(req),
+      targetUserId: id,
+      targetEmail: user.email,
+    });
+
+    res.json({ message: 'Correo de restablecimiento enviado.' });
+  } catch (error) {
+    logger.error('USUARIOS: error al enviar restablecimiento', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
 }

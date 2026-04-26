@@ -26,13 +26,21 @@ const casoInclude = {
     },
   },
   juzgado: { select: { id: true, nombre: true, ciudad: true } },
+  abogadosContraparte: {
+    select: { id: true, nombre: true, direccion: true, telefono: true },
+    orderBy: { createdAt: 'asc' as const },
+  },
+  demandados: {
+    select: { id: true, nombre: true, domicilio: true, carnet: true, telefono: true },
+    orderBy: { createdAt: 'asc' as const },
+  },
 };
 
 const ESTADO_LABELS: Record<string, string> = {
   ACTIVO: 'Activo',
-  EN_PROCESO: 'En proceso',
-  CERRADO: 'Cerrado',
-  SUSPENDIDO: 'Suspendido',
+  PENDIENTE: 'Pendiente',
+  CONCLUIDO: 'Concluido',
+  ARCHIVADO: 'Archivado',
 };
 
 export async function getAllCasos(req: AuthRequest, res: Response): Promise<void> {
@@ -137,7 +145,7 @@ export async function getCasoHistorial(req: AuthRequest, res: Response): Promise
 
 export async function createCaso(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId } = req.body;
+    const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId, abogadosContraparte, demandados } = req.body;
 
     if (!titulo) {
       res.status(400).json({ error: 'El título es requerido' });
@@ -152,6 +160,13 @@ export async function createCaso(req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    const abogadosContraparteData = Array.isArray(abogadosContraparte)
+      ? abogadosContraparte.filter((a: { nombre?: string }) => a.nombre)
+      : [];
+    const demandadosData = Array.isArray(demandados)
+      ? demandados.filter((d: { nombre?: string }) => d.nombre)
+      : [];
+
     const caso = await prisma.caso.create({
       data: {
         titulo,
@@ -162,12 +177,10 @@ export async function createCaso(req: AuthRequest, res: Response): Promise<void>
         fechaCierre: fechaCierre ? new Date(fechaCierre) : null,
         notas: notas || null,
         juzgadoId: juzgadoId || null,
-        abogados: {
-          create: abogadoIds.map((abogadoId: string) => ({ abogadoId })),
-        },
-        clientes: {
-          create: clienteIds.map((clienteId: string) => ({ clienteId })),
-        },
+        abogados: { create: abogadoIds.map((abogadoId: string) => ({ abogadoId })) },
+        clientes: { create: clienteIds.map((clienteId: string) => ({ clienteId })) },
+        abogadosContraparte: abogadosContraparteData.length > 0 ? { create: abogadosContraparteData } : undefined,
+        demandados: demandadosData.length > 0 ? { create: demandadosData } : undefined,
       },
       include: casoInclude,
     });
@@ -183,7 +196,7 @@ export async function createCaso(req: AuthRequest, res: Response): Promise<void>
 export async function updateCaso(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId } = req.body;
+    const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId, abogadosContraparte, demandados } = req.body;
     const { role, id: userId } = req.user!;
 
     const existing = await prisma.caso.findUnique({ where: { id }, include: casoInclude });
@@ -269,6 +282,18 @@ export async function updateCaso(req: AuthRequest, res: Response): Promise<void>
     if (clienteIds && Array.isArray(clienteIds)) {
       await prisma.casoCliente.deleteMany({ where: { casoId: id } });
       updateData.clientes = { create: clienteIds.map((clienteId: string) => ({ clienteId })) };
+    }
+    if (Array.isArray(abogadosContraparte)) {
+      updateData.abogadosContraparte = {
+        deleteMany: {},
+        create: abogadosContraparte.filter((a: { nombre?: string }) => a.nombre),
+      };
+    }
+    if (Array.isArray(demandados)) {
+      updateData.demandados = {
+        deleteMany: {},
+        create: demandados.filter((d: { nombre?: string }) => d.nombre),
+      };
     }
 
     const updated = await prisma.caso.update({ where: { id }, data: updateData, include: casoInclude });

@@ -33,21 +33,21 @@ export default function App() {
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/profile" element={<Profile />} />
-                {/* Admin y Abogado only */}
-                <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'ABOGADO']} />}>
+                {/* Abogado y Auxiliar */}
+                <Route element={<ProtectedRoute allowedRoles={['ABOGADO', 'AUXILIAR']} />}>
                   <Route path="/clients" element={<Clients />} />
                   <Route path="/clients/:id" element={<ClientDetail />} />
                 </Route>
-                {/* Admin only */}
-                <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+                {/* Admin y Auxiliar (Auxiliar solo lectura) */}
+                <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'AUXILIAR']} />}>
                   <Route path="/users" element={<Users />} />
                 </Route>
                 {/* Abogado only */}
                 <Route element={<ProtectedRoute allowedRoles={['ABOGADO']} />}>
                   <Route path="/juzgados" element={<Juzgados />} />
                 </Route>
-                {/* Abogado y Cliente */}
-                <Route element={<ProtectedRoute allowedRoles={['ABOGADO', 'CLIENTE']} />}>
+                {/* Abogado, Cliente y Auxiliar */}
+                <Route element={<ProtectedRoute allowedRoles={['ABOGADO', 'CLIENTE', 'AUXILIAR']} />}>
                   <Route path="/casos" element={<Casos />} />
                   <Route path="/casos/:id" element={<CasoDetail />} />
                 </Route>

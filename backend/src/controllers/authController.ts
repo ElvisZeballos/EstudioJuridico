@@ -16,8 +16,25 @@ function generateToken(user: { id: string; email: string; role: string }): strin
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role },
     secret,
-    { expiresIn: '7d' }
+    { expiresIn: '2h' }
   );
+}
+
+export async function refreshToken(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const user = req.user!;
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!dbUser || !dbUser.active) {
+      res.status(401).json({ error: 'Account not found or disabled' });
+      return;
+    }
+    const token = generateToken({ id: dbUser.id, email: dbUser.email, role: dbUser.role });
+    logger.info('TOKEN: renovado', { userId: dbUser.id, email: dbUser.email, role: dbUser.role });
+    res.json({ token });
+  } catch (error) {
+    logger.error('TOKEN: error al renovar', { error: (error as Error).message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }
 
 export async function login(req: Request, res: Response): Promise<void> {

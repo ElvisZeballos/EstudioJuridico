@@ -2,8 +2,6 @@ import { useState, FormEvent } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import axios from 'axios';
 
 export function Login() {

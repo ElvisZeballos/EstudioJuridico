@@ -15,7 +15,7 @@ function actor(req: AuthRequest) {
   };
 }
 
-function decryptClient(client: {
+interface ClientRaw {
   id: string;
   nombre: string;
   apellido: string;
@@ -31,7 +31,10 @@ function decryptClient(client: {
   abogadoId: string | null;
   userId: string | null;
   abogado?: { id: string; nombre: string; apellido: string; email: string } | null;
-}) {
+  referencias?: { id: string; nombre: string; relacion: string; telefono: string }[];
+}
+
+function decryptClient(client: ClientRaw) {
   return {
     ...client,
     dni: decryptIfDefined(client.dni) ?? '',
@@ -39,8 +42,14 @@ function decryptClient(client: {
     direccion: decryptIfDefined(client.direccion),
     fechaNacimiento: decryptIfDefined(client.fechaNacimiento),
     notas: decryptIfDefined(client.notas),
+    referencias: client.referencias ?? [],
   };
 }
+
+const CLIENT_INCLUDE = {
+  abogado: { select: { id: true, nombre: true, apellido: true, email: true } },
+  referencias: { select: { id: true, nombre: true, relacion: true, telefono: true }, orderBy: { createdAt: 'asc' as const } },
+};
 
 export async function getAllClients(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -53,7 +62,7 @@ export async function getAllClients(req: AuthRequest, res: Response): Promise<vo
     if (req.user?.role === 'CLIENTE') {
       const clientProfile = await prisma.client.findFirst({
         where: { userId: req.user.id, active: true },
-        include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
+        include: CLIENT_INCLUDE,
       });
 
       if (!clientProfile) { res.json([]); return; }
@@ -63,7 +72,7 @@ export async function getAllClients(req: AuthRequest, res: Response): Promise<vo
 
     const clients = await prisma.client.findMany({
       where: whereClause,
-      include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
+      include: CLIENT_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -81,7 +90,7 @@ export async function getClientById(req: AuthRequest, res: Response): Promise<vo
 
     const client = await prisma.client.findUnique({
       where: { id },
-      include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
+      include: CLIENT_INCLUDE,
     });
 
     if (!client) {
@@ -112,7 +121,7 @@ export async function getClientById(req: AuthRequest, res: Response): Promise<vo
 
 export async function createClient(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { nombre, apellido, dni, email, telefono, direccion, fechaNacimiento, notas, abogadoId, userId } = req.body;
+    const { nombre, apellido, dni, email, telefono, direccion, fechaNacimiento, notas, abogadoId, userId, referencias } = req.body;
 
     if (!nombre || !apellido || !dni || !email) {
       res.status(400).json({ error: 'nombre, apellido, dni and email are required' });
@@ -120,6 +129,9 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
     }
 
     const assignedAbogadoId = req.user?.role === 'ABOGADO' ? req.user.id : abogadoId;
+
+    const refs: { nombre: string; relacion: string; telefono: string }[] =
+      Array.isArray(referencias) ? referencias.filter((r) => r.nombre && r.relacion && r.telefono) : [];
 
     const client = await prisma.client.create({
       data: {
@@ -132,8 +144,9 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
         notas: encryptIfDefined(notas),
         abogadoId: assignedAbogadoId || null,
         userId: userId || null,
+        referencias: refs.length > 0 ? { create: refs } : undefined,
       },
-      include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
+      include: CLIENT_INCLUDE,
     });
 
     logger.info('CLIENTES: cliente creado', {
@@ -154,7 +167,7 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
 export async function updateClient(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { nombre, apellido, dni, email, telefono, direccion, fechaNacimiento, notas, abogadoId, active } = req.body;
+    const { nombre, apellido, dni, email, telefono, direccion, fechaNacimiento, notas, abogadoId, active, referencias } = req.body;
 
     const existing = await prisma.client.findUnique({ where: { id } });
     if (!existing) {
@@ -192,10 +205,18 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
 
     const camposModificados = Object.keys(updateData);
 
+    if (Array.isArray(referencias)) {
+      const refs = referencias.filter((r) => r.nombre && r.relacion && r.telefono);
+      updateData.referencias = {
+        deleteMany: {},
+        create: refs,
+      };
+    }
+
     const updated = await prisma.client.update({
       where: { id },
       data: updateData,
-      include: { abogado: { select: { id: true, nombre: true, apellido: true, email: true } } },
+      include: CLIENT_INCLUDE,
     });
 
     logger.info('CLIENTES: cliente modificado', {

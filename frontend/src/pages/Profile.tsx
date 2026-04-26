@@ -111,13 +111,14 @@ export function Profile() {
     }
   };
 
-  const roleColors = {
-    ADMIN: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-    ABOGADO: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    CLIENTE: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  const roleColors: Record<string, string> = {
+    ADMIN:    'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+    ABOGADO:  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    CLIENTE:  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    AUXILIAR: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
   };
 
-  const roleLabels = { ADMIN: 'Administrador', ABOGADO: 'Abogado', CLIENTE: 'Cliente' };
+  const roleLabels: Record<string, string> = { ADMIN: 'Administrador', ABOGADO: 'Abogado', CLIENTE: 'Cliente', AUXILIAR: 'Auxiliar' };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
