@@ -1,0 +1,430 @@
+{
+  "abogado": {
+    "id": "ebb83ae8-ca7a-4233-aa65-e61638a63f63",
+    "nombre": "María",
+    "apellido": "González"
+  },
+  "generadoEn": "2026-05-03T01:31:06.928Z",
+  "periodo": "ultimas_24_horas",
+  "totalMensajes": 59,
+  "totalConversaciones": 7,
+  "carpeta": "C:\\Users\\josec\\Documents\\Code\\EsrtudioJuridico\\backend\\temp\\whatsapp_2026-05-03\\01_María_González",
+  "conversaciones": {
+    "status@broadcast": {
+      "jid": "status@broadcast",
+      "nombre": "",
+      "esGrupo": false,
+      "mensajes": [
+        {
+          "timestamp": "2026-05-02T13:06:27.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de__09-06_5.jpg",
+          "archivo": "media/imagen_de__09-06_5.jpg",
+          "caption": ".. 🥹"
+        },
+        {
+          "timestamp": "2026-05-02T15:50:39.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de__11-50_6.jpg",
+          "archivo": "media/imagen_de__11-50_6.jpg",
+          "caption": "✨"
+        },
+        {
+          "timestamp": "2026-05-02T18:31:49.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de__14-31_60.jpg",
+          "archivo": "media/imagen_de__14-31_60.jpg",
+          "caption": "Mommy💕✨"
+        },
+        {
+          "timestamp": "2026-05-02T22:39:25.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de__18-39_67.jpg",
+          "archivo": "media/imagen_de__18-39_67.jpg"
+        }
+      ]
+    },
+    "59163841674@s.whatsapp.net": {
+      "jid": "59163841674@s.whatsapp.net",
+      "nombre": "59163841674",
+      "esGrupo": false,
+      "mensajes": [
+        {
+          "timestamp": "2026-05-02T03:42:16.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Ya me cdpille"
+        },
+        {
+          "timestamp": "2026-05-02T12:33:02.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "https://vt.tiktok.com/ZS9usMn6j/"
+        },
+        {
+          "timestamp": "2026-05-02T16:10:55.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de_59163841674_12-10_7.jpg",
+          "archivo": "media/imagen_de_59163841674_12-10_7.jpg"
+        },
+        {
+          "timestamp": "2026-05-02T16:12:36.000Z",
+          "deMi": true,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de_59163841674_12-12_8.jpg",
+          "archivo": "media/imagen_de_59163841674_12-12_8.jpg"
+        },
+        {
+          "timestamp": "2026-05-02T16:14:02.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Muchas gracias hijito"
+        },
+        {
+          "timestamp": "2026-05-02T16:14:17.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "El lunes te lo devuelvo"
+        }
+      ]
+    },
+    "59170762637@s.whatsapp.net": {
+      "jid": "59170762637@s.whatsapp.net",
+      "nombre": "59170762637",
+      "esGrupo": false,
+      "mensajes": [
+        {
+          "timestamp": "2026-05-02T05:13:34.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Q feliz, yo dormí un poquito nomas"
+        },
+        {
+          "timestamp": "2026-05-02T16:13:03.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Ni disfrutaste la resaca"
+        },
+        {
+          "timestamp": "2026-05-02T16:13:05.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Jajaja"
+        },
+        {
+          "timestamp": "2026-05-02T17:31:45.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Hahaha"
+        },
+        {
+          "timestamp": "2026-05-02T17:32:10.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "No hemos waseado"
+        },
+        {
+          "timestamp": "2026-05-02T17:32:18.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Como vamos a ir a lujos"
+        },
+        {
+          "timestamp": "2026-05-02T17:35:01.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Fue tu idea🙃"
+        },
+        {
+          "timestamp": "2026-05-02T17:35:10.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Yo ni sabía que existía lujos"
+        },
+        {
+          "timestamp": "2026-05-02T17:35:24.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Pero si re waso"
+        },
+        {
+          "timestamp": "2026-05-02T17:49:02.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Para q me hacen caso hahaha"
+        },
+        {
+          "timestamp": "2026-05-02T17:52:54.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Tu pues jajaja"
+        },
+        {
+          "timestamp": "2026-05-02T17:53:15.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Nomas tengo miedo de ver la cuenta \nJajaja"
+        },
+        {
+          "timestamp": "2026-05-02T17:53:52.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Siiii"
+        },
+        {
+          "timestamp": "2026-05-02T17:53:59.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Lujos es bn caro"
+        },
+        {
+          "timestamp": "2026-05-02T17:54:24.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Enserio"
+        },
+        {
+          "timestamp": "2026-05-02T17:54:28.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Ceci!!!!!"
+        },
+        {
+          "timestamp": "2026-05-02T17:55:37.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Este mes vamos a ir a los almuercitos de 10bs"
+        },
+        {
+          "timestamp": "2026-05-02T17:57:23.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Los más baratos son 500 de lujos"
+        },
+        {
+          "timestamp": "2026-05-02T17:58:05.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Imagino que por todos"
+        },
+        {
+          "timestamp": "2026-05-02T17:58:31.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "No sé ya me imagino unos 300 de toda la noche"
+        },
+        {
+          "timestamp": "2026-05-02T18:01:33.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "2 rones y un jaguer"
+        },
+        {
+          "timestamp": "2026-05-02T18:01:45.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "3 rones"
+        },
+        {
+          "timestamp": "2026-05-02T18:02:03.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Y en lujos fue otro ron creo"
+        },
+        {
+          "timestamp": "2026-05-02T18:02:16.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "4 rones"
+        },
+        {
+          "timestamp": "2026-05-02T18:02:21.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "No creo q sea 300"
+        },
+        {
+          "timestamp": "2026-05-02T18:02:39.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Más el jaguer"
+        },
+        {
+          "timestamp": "2026-05-02T18:03:15.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Hay no"
+        }
+      ]
+    },
+    "120363408864865474@g.us": {
+      "jid": "120363408864865474@g.us",
+      "nombre": "Grupo_120363408864865474",
+      "esGrupo": true,
+      "mensajes": [
+        {
+          "timestamp": "2026-05-02T16:30:35.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Está dando algunos problemas"
+        },
+        {
+          "timestamp": "2026-05-02T16:30:38.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "El qr"
+        },
+        {
+          "timestamp": "2026-05-02T16:31:03.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Pero no en la ui jajaja"
+        },
+        {
+          "timestamp": "2026-05-02T16:31:22.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "rayos"
+        },
+        {
+          "timestamp": "2026-05-02T16:31:35.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Estoy viendo alguna alternativa"
+        },
+        {
+          "timestamp": "2026-05-02T17:41:16.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Ya apareció el qr"
+        },
+        {
+          "timestamp": "2026-05-02T17:43:55.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Genio"
+        },
+        {
+          "timestamp": "2026-05-02T17:44:15.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Lo hubiera tenido ayer"
+        },
+        {
+          "timestamp": "2026-05-02T17:44:21.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Pero estaba muriendo"
+        },
+        {
+          "timestamp": "2026-05-02T17:44:25.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Jejeje"
+        }
+      ]
+    },
+    "59175920341@s.whatsapp.net": {
+      "jid": "59175920341@s.whatsapp.net",
+      "nombre": "59175920341",
+      "esGrupo": false,
+      "mensajes": [
+        {
+          "timestamp": "2026-05-02T17:43:57.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Buenas tardes notificacion del *Juzgado Publico Civil y Comercial n°6* de la capital,  con los siguientes actuados:\nCONFIRMAR RECIBIDO PORFAVOR"
+        },
+        {
+          "timestamp": "2026-05-02T17:43:58.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de_59175920341_13-43_30.jpg",
+          "archivo": "media/imagen_de_59175920341_13-43_30.jpg"
+        },
+        {
+          "timestamp": "2026-05-02T17:43:59.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de_59175920341_13-43_31.jpg",
+          "archivo": "media/imagen_de_59175920341_13-43_31.jpg"
+        },
+        {
+          "timestamp": "2026-05-02T17:43:59.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de_59175920341_13-43_32.jpg",
+          "archivo": "media/imagen_de_59175920341_13-43_32.jpg"
+        },
+        {
+          "timestamp": "2026-05-02T17:43:59.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de_59175920341_13-43_33.jpg",
+          "archivo": "media/imagen_de_59175920341_13-43_33.jpg"
+        },
+        {
+          "timestamp": "2026-05-02T17:44:00.000Z",
+          "deMi": false,
+          "tipo": "imagen",
+          "nombreArchivo": "imagen_de_59175920341_13-44_34.jpg",
+          "archivo": "media/imagen_de_59175920341_13-44_34.jpg"
+        }
+      ]
+    },
+    "120363025685284998@g.us": {
+      "jid": "120363025685284998@g.us",
+      "nombre": "Grupo_120363025685284998",
+      "esGrupo": true,
+      "mensajes": [
+        {
+          "timestamp": "2026-05-02T21:44:52.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "https://vt.tiktok.com/ZS9Hun4Qh/"
+        },
+        {
+          "timestamp": "2026-05-02T21:45:13.000Z",
+          "deMi": true,
+          "tipo": "texto",
+          "cuerpo": "Nada es gratis che\nSalimos en su propaganda"
+        },
+        {
+          "timestamp": "2026-05-02T21:59:09.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "😝 Medio kilo de ubre gratis para el Carlitos"
+        },
+        {
+          "timestamp": "2026-05-02T22:00:12.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Más que propaganda parece cena de caridad para los desamparados de Nice"
+        },
+        {
+          "timestamp": "2026-05-02T22:04:52.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "🤔Tal vez era la actividad de \"Community Month\" de Bufalo Rodizio"
+        },
+        {
+          "timestamp": "2026-05-02T22:30:21.000Z",
+          "deMi": false,
+          "tipo": "texto",
+          "cuerpo": "Por un dev de la calle"
+        }
+      ]
+    },
+    "59163919037@s.whatsapp.net": {
+      "jid": "59163919037@s.whatsapp.net",
+      "nombre": "59163919037",
+      "esGrupo": false,
+      "mensajes": []
+    }
+  }
+}

@@ -257,4 +257,19 @@ export const adminApi = {
   getStats: () => api.get<AdminStats>('/admin/stats').then((r) => r.data),
 };
 
+// WhatsApp endpoints
+export const whatsappApi = {
+  connect: () =>
+    api.post<{ qr: string | null; status: string }>('/whatsapp/connect').then((r) => r.data),
+
+  getStatus: () =>
+    api.get<{ status: string; qr: string | null; hasSession?: boolean }>('/whatsapp/status').then((r) => r.data),
+
+  disconnect: () =>
+    api.delete<{ message: string }>('/whatsapp/disconnect').then((r) => r.data),
+
+  runExtraction: () =>
+    api.post<{ message: string }>('/whatsapp/run-extraction').then((r) => r.data),
+};
+
 export default api;

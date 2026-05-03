@@ -49,6 +49,8 @@ model User {
   movimientos        Movimiento[]         @relation("AbogadoMovimientos")
   historialAutor     CasoHistorial[]      @relation("HistorialAutor")
   novedades          CasoNovedad[]        @relation("NovedadAutor")
+  whatsappSession    WhatsAppSession?
+  whatsappMessages   WhatsAppMessage[]
 }
 
 model Juzgado {
@@ -197,6 +199,30 @@ model Movimiento {
   active     Boolean        @default(true)
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+}
+
+model WhatsAppSession {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creds     String   @db.Text
+  keys      String   @db.Text
+  connected Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WhatsAppMessage {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId String
+  remoteJid String
+  timestamp DateTime
+  rawJson   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@unique([userId, messageId])
 }
 
 model CasoNovedad {
