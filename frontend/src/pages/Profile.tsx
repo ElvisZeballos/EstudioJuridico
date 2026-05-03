@@ -32,11 +32,13 @@ export function Profile() {
   );
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
+  const [hasWhatsAppSession, setHasWhatsAppSession] = useState(false);
   const [extractionState, setExtractionState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     whatsappApi.getStatus().then((data) => {
       setWhatsappConnected(data.status === 'CONNECTED');
+      setHasWhatsAppSession(data.hasSession ?? false);
     }).catch(() => {});
   }, []);
 
@@ -242,7 +244,7 @@ export function Profile() {
             >
               {whatsappConnected ? 'WhatsApp conectado' : 'Conectar WhatsApp'}
             </Button>
-            {whatsappConnected && (user?.role === 'ABOGADO' || user?.role === 'ADMIN') && (
+            {hasWhatsAppSession && (user?.role === 'ABOGADO' || user?.role === 'ADMIN') && (
               <Button
                 variant="outline"
                 size="sm"

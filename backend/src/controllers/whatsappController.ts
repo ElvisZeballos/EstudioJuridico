@@ -6,7 +6,7 @@ import {
   getDbSessionStatus,
   disconnectWhatsApp,
 } from '../services/whatsappService';
-import { runWhatsAppExtraction } from '../services/whatsappRunner';
+import { runExtractionForUser } from '../services/whatsappRunner';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../config/logger';
 
@@ -57,8 +57,8 @@ export async function disconnectWhatsAppHandler(req: AuthRequest, res: Response)
 export async function triggerExtractionHandler(req: AuthRequest, res: Response): Promise<void> {
   const userId = req.user!.id;
   logger.info(`Extracción manual iniciada por usuario ${userId}`);
-  runWhatsAppExtraction().catch((err) =>
-    logger.error(`Error en extracción manual: ${(err as Error).message}`)
+  runExtractionForUser(userId).catch((err) =>
+    logger.error(`Error en extracción manual de ${userId}: ${(err as Error).message}`)
   );
   res.json({ message: 'Extracción iniciada. Los resultados se guardarán en la carpeta temp del servidor.' });
 }

@@ -20,6 +20,8 @@ const LOOK_BACK_MS = 24 * 60 * 60 * 1000;
 const CLEANUP_MS   = 48 * 60 * 60 * 1000;
 const MESSAGE_SETTLE_MS = 15_000; // wait after connect for WhatsApp to push delta
 
+const NOTIFICATION_KEYWORDS = ['juzgado', 'jusgado', 'notificaci', 'tribunal'];
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface TextMessage {
@@ -164,6 +166,84 @@ async function processMessage(
   return null;
 }
 
+// ─── Notification filter ─────────────────────────────────────────────────────
+
+function hasKeyword(text: string): boolean {
+  const lower = text.toLowerCase();
+  return NOTIFICATION_KEYWORDS.some((k) => lower.includes(k));
+}
+
+async function filterNotifications(userDir: string): Promise<void> {
+  const jsonPath = path.join(userDir, 'messages.json');
+  const mediaDir = path.join(userDir, 'media');
+
+  if (!fs.existsSync(jsonPath)) return;
+
+  const output: RunOutput = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+
+  const matching: Record<string, Conversation> = {};
+
+  for (const [jid, conv] of Object.entries(output.conversaciones)) {
+    const hasMedia = conv.mensajes.some(
+      (m) => m.tipo === 'imagen' || m.tipo === 'documento_pdf'
+    );
+    const hasNotifKeyword = conv.mensajes.some(
+      (m) => m.tipo === 'texto' && hasKeyword(m.cuerpo)
+    );
+    if (hasMedia && hasNotifKeyword) {
+      matching[jid] = conv;
+    }
+  }
+
+  // Collect media files referenced by matching conversations
+  const referencedFiles = new Set<string>();
+  for (const conv of Object.values(matching)) {
+    for (const msg of conv.mensajes) {
+      if (msg.tipo === 'imagen' || msg.tipo === 'documento_pdf') {
+        referencedFiles.add(path.basename(msg.archivo));
+      }
+    }
+  }
+
+  // Delete all media files not referenced in matching conversations
+  if (fs.existsSync(mediaDir)) {
+    for (const file of fs.readdirSync(mediaDir)) {
+      if (!referencedFiles.has(file)) {
+        fs.unlinkSync(path.join(mediaDir, file));
+      }
+    }
+  }
+
+  // Write notificaciones.json if there are matches
+  if (Object.keys(matching).length > 0) {
+    const totalMensajes = Object.values(matching).reduce(
+      (acc, c) => acc + c.mensajes.length, 0
+    );
+    const notifOutput: RunOutput = {
+      ...output,
+      generadoEn: new Date().toISOString(),
+      totalMensajes,
+      totalConversaciones: Object.keys(matching).length,
+      conversaciones: matching,
+    };
+    fs.writeFileSync(
+      path.join(userDir, 'notificaciones.json'),
+      JSON.stringify(notifOutput, null, 2),
+      'utf-8'
+    );
+    logger.info(
+      `Runner: ${Object.keys(matching).length} notificación(es) detectadas para ${output.abogado.nombre} ${output.abogado.apellido}`
+    );
+  } else {
+    logger.info(
+      `Runner: sin notificaciones para ${output.abogado.nombre} ${output.abogado.apellido}`
+    );
+  }
+
+  // Delete original messages.json
+  fs.unlinkSync(jsonPath);
+}
+
 // ─── Per-user extraction ──────────────────────────────────────────────────────
 
 async function extractForUser(
@@ -172,7 +252,7 @@ async function extractForUser(
   apellido: string,
   runDir: string,
   userIndex: number
-): Promise<void> {
+): Promise<string> {
   const folderName = `${String(userIndex).padStart(2, '0')}_${sanitize(nombre)}_${sanitize(apellido)}`;
   const userDir = path.join(runDir, folderName);
   const mediaDir = path.join(userDir, 'media');
@@ -255,6 +335,60 @@ async function extractForUser(
     `Runner: ${nombre} ${apellido} — guardado en ${userDir} ` +
     `(${totalMensajes} msgs, ${Object.keys(conversations).length} conversaciones)`
   );
+
+  return userDir;
+}
+
+// ─── Single-user manual extraction ───────────────────────────────────────────
+
+export async function runExtractionForUser(userId: string): Promise<void> {
+  const session = await prisma.whatsAppSession.findUnique({
+    where: { userId },
+    include: {
+      user: { select: { nombre: true, apellido: true, active: true } },
+    },
+  });
+
+  if (!session) throw new Error(`Sin sesión de WhatsApp registrada para ${userId}`);
+  if (!session.user.active) throw new Error(`Usuario ${userId} inactivo`);
+
+  const { nombre, apellido } = session.user;
+  const dateStr = new Date().toISOString().split('T')[0];
+  const runDir = path.join(process.cwd(), 'temp', `whatsapp_${dateStr}`);
+  fs.mkdirSync(runDir, { recursive: true });
+
+  logger.info(`Runner manual: iniciando extracción para ${nombre} ${apellido}`);
+
+  try {
+    await startWhatsAppSession(userId);
+
+    const connected = await waitForConnected(userId, 60_000);
+    if (!connected) throw new Error(`Timeout conectando WhatsApp para ${nombre} ${apellido}`);
+
+    logger.info(`Runner manual: esperando mensajes de ${nombre} (${MESSAGE_SETTLE_MS / 1000}s)...`);
+    await new Promise<void>((r) => setTimeout(r, MESSAGE_SETTLE_MS));
+
+    const userDir = await extractForUser(userId, nombre, apellido, runDir, 0);
+
+    const cutoff = new Date(Date.now() - CLEANUP_MS);
+    const { count } = await prisma.whatsAppMessage.deleteMany({
+      where: { userId, timestamp: { lt: cutoff } },
+    });
+    if (count > 0) {
+      logger.info(`Runner manual: ${count} mensajes viejos eliminados para ${nombre} ${apellido}`);
+    }
+
+    await softDisconnectSession(userId);
+    logger.info(`Runner manual: sesión de ${nombre} ${apellido} cerrada`);
+
+    await filterNotifications(userDir);
+    logger.info(`Runner manual: extracción finalizada para ${nombre} ${apellido} — ${runDir}`);
+
+  } catch (err) {
+    logger.error(`Runner manual: error con ${nombre} ${apellido}: ${(err as Error).message}`);
+    await softDisconnectSession(userId);
+    throw err;
+  }
 }
 
 // ─── Main runner ──────────────────────────────────────────────────────────────
@@ -301,7 +435,7 @@ export async function runWhatsAppExtraction(): Promise<void> {
       await new Promise<void>((r) => setTimeout(r, MESSAGE_SETTLE_MS));
 
       // 4. Extraer y generar JSON
-      await extractForUser(user.id, user.nombre, user.apellido, runDir, i + 1);
+      const userDir = await extractForUser(user.id, user.nombre, user.apellido, runDir, i + 1);
 
       // 5. Limpiar mensajes de más de 48h para este usuario
       const cutoff = new Date(Date.now() - CLEANUP_MS);
@@ -315,6 +449,9 @@ export async function runWhatsAppExtraction(): Promise<void> {
       // 6. Cerrar sesión
       await softDisconnectSession(user.id);
       logger.info(`Runner: sesión de ${user.nombre} ${user.apellido} cerrada`);
+
+      // 7. Filtrar notificaciones y limpiar archivos no relevantes
+      await filterNotifications(userDir);
 
     } catch (err) {
       logger.error(`Runner: error con ${user.nombre} ${user.apellido}: ${(err as Error).message}`);
