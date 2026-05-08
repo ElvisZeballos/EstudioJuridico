@@ -181,8 +181,8 @@ export async function createMovimiento(req: AuthRequest, res: Response): Promise
     const { casoId, tipo, concepto, monto, fecha, notas } = req.body;
     const { id: userId, role } = req.user!;
 
-    if (!casoId || !tipo || !concepto || !monto || !fecha) {
-      res.status(400).json({ error: 'Caso, tipo, concepto, monto y fecha son requeridos' });
+    if (!tipo || !concepto || !monto || !fecha) {
+      res.status(400).json({ error: 'Tipo, concepto, monto y fecha son requeridos' });
       return;
     }
 
@@ -191,21 +191,23 @@ export async function createMovimiento(req: AuthRequest, res: Response): Promise
       return;
     }
 
-    const caso = await prisma.caso.findUnique({
-      where: { id: casoId },
-      include: { abogados: true },
-    });
+    if (casoId) {
+      const caso = await prisma.caso.findUnique({
+        where: { id: casoId },
+        include: { abogados: true },
+      });
 
-    if (!caso || !caso.active) {
-      res.status(404).json({ error: 'Caso no encontrado' });
-      return;
-    }
-
-    if (role === 'ABOGADO') {
-      const isAssigned = caso.abogados.some((a) => a.abogadoId === userId);
-      if (!isAssigned) {
-        res.status(403).json({ error: 'No tienes acceso a este caso' });
+      if (!caso || !caso.active) {
+        res.status(404).json({ error: 'Caso no encontrado' });
         return;
+      }
+
+      if (role === 'ABOGADO') {
+        const isAssigned = caso.abogados.some((a) => a.abogadoId === userId);
+        if (!isAssigned) {
+          res.status(403).json({ error: 'No tienes acceso a este caso' });
+          return;
+        }
       }
     }
 
@@ -215,7 +217,7 @@ export async function createMovimiento(req: AuthRequest, res: Response): Promise
 
     const movimiento = await prisma.movimiento.create({
       data: {
-        casoId,
+        casoId: casoId || null,
         abogadoId,
         tipo,
         concepto,
@@ -226,7 +228,7 @@ export async function createMovimiento(req: AuthRequest, res: Response): Promise
       include: movimientoInclude,
     });
 
-    logger.info('MOVIMIENTOS: creado', { ...actor(req), movimientoId: movimiento.id, tipo, monto });
+    logger.info('MOVIMIENTOS: creado', { ...actor(req), movimientoId: movimiento.id, tipo, monto, casoId: casoId || 'global' });
     res.status(201).json(movimiento);
   } catch (error) {
     logger.error('MOVIMIENTOS: error al crear', { ...actor(req), error: (error as Error).message });

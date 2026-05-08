@@ -65,6 +65,40 @@ async function syncToGoogleCalendar(
   }
 }
 
+export async function getNovedadesNotificaciones(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id: userId, role } = req.user!;
+
+    let casoFilter: object;
+    if (role === 'ADMIN') {
+      casoFilter = {};
+    } else if (role === 'ABOGADO') {
+      casoFilter = { abogados: { some: { abogadoId: userId } } };
+    } else {
+      const client = await prisma.client.findFirst({ where: { userId } });
+      if (!client) { res.json([]); return; }
+      casoFilter = { clientes: { some: { clienteId: client.id } } };
+    }
+
+    const novedades = await prisma.casoNovedad.findMany({
+      where: {
+        active: true,
+        esNotificacion: true,
+        caso: { active: true, ...casoFilter },
+      },
+      include: novedadInclude,
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    logger.info('NOVEDADES: notificaciones consultadas', { ...actor(req), total: novedades.length });
+    res.json(novedades);
+  } catch (error) {
+    logger.error('NOVEDADES: error al listar notificaciones', { ...actor(req), error: (error as Error).message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export async function getNovedadesByCaso(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { casoId } = req.params;

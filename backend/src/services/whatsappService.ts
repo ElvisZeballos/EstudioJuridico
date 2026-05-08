@@ -299,6 +299,15 @@ export async function disconnectAllSessions(): Promise<void> {
   }
 }
 
+export async function sendWhatsAppMessage(userId: string, toPhone: string, text: string): Promise<void> {
+  const session = activeSessions.get(userId);
+  if (!session || session.status !== 'CONNECTED') {
+    throw new Error(`No hay sesión activa de WhatsApp para ${userId}`);
+  }
+  const jid = `${toPhone.replace(/\D/g, '')}@s.whatsapp.net`;
+  await session.socket.sendMessage(jid, { text });
+}
+
 export async function disconnectWhatsApp(userId: string): Promise<void> {
   const session = activeSessions.get(userId);
   if (session) {

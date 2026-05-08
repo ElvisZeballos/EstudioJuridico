@@ -12,7 +12,10 @@ export function getAuthUrl(userId: string): string {
   const client = makeOAuth2Client();
   return client.generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/calendar.events'],
+    scope: [
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/drive.file',
+    ],
     state: userId,
     prompt: 'consent',
   });

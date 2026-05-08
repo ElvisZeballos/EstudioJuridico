@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 import { AuthRequest } from '../middleware/auth';
@@ -19,6 +19,26 @@ function actor(req: AuthRequest) {
 }
 
 const prisma = new PrismaClient();
+
+async function isPhoneInUse(telefono: string, excludeId?: string): Promise<boolean> {
+  const users = await prisma.user.findMany({ select: { id: true, telefono: true } });
+  const normalized = telefono.replace(/\s+/g, '');
+  return users.some(u => {
+    if (excludeId && u.id === excludeId) return false;
+    if (!u.telefono) return false;
+    return decryptIfDefined(u.telefono)?.replace(/\s+/g, '') === normalized;
+  });
+}
+
+async function isIdInUse(dni: string, excludeId?: string): Promise<boolean> {
+  const users = await prisma.user.findMany({ select: { id: true, dni: true } });
+  const normalized = dni.replace(/[\s.\-]/g, '').toLowerCase();
+  return users.some(u => {
+    if (excludeId && u.id === excludeId) return false;
+    if (!u.dni) return false;
+    return decryptIfDefined(u.dni)?.replace(/[\s.\-]/g, '').toLowerCase() === normalized;
+  });
+}
 
 function decryptUser(user: {
   id: string;
@@ -95,6 +115,38 @@ export async function getUserById(req: AuthRequest, res: Response): Promise<void
   }
 }
 
+export async function changePassword(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    if (req.user?.id !== id) {
+      res.status(403).json({ error: 'Access denied' });
+      return;
+    }
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: 'Se requiere contraseña actual y nueva.' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id }, select: { password: true } });
+    if (!user) { res.status(404).json({ error: 'Usuario no encontrado.' }); return; }
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      res.status(400).json({ error: 'La contraseña actual es incorrecta.' });
+      return;
+    }
+    await prisma.user.update({ where: { id }, data: { password: await bcrypt.hash(newPassword, 12) } });
+    logger.info('USUARIOS: contraseña cambiada', { ...actor(req), targetUserId: id });
+    res.json({ message: 'Contraseña actualizada correctamente.' });
+  } catch (error) {
+    logger.error('USUARIOS: error al cambiar contraseña', { ...actor(req), error: (error as Error).message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export async function updateUser(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
@@ -133,6 +185,16 @@ export async function updateUser(req: AuthRequest, res: Response): Promise<void>
       updateData.password = await bcrypt.hash(password, 12);
     }
 
+    if (telefono && await isPhoneInUse(telefono, id)) {
+      res.status(409).json({ error: 'El número de teléfono ya está en uso.' });
+      return;
+    }
+
+    if (dni && await isIdInUse(dni, id)) {
+      res.status(409).json({ error: 'La cédula de identidad ya está en uso.' });
+      return;
+    }
+
     const camposModificados = Object.keys(updateData).filter(k => k !== 'password');
 
     const updated = await prisma.user.update({
@@ -155,6 +217,12 @@ export async function updateUser(req: AuthRequest, res: Response): Promise<void>
 
     res.json(decryptUser(updated));
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const field = (error.meta?.target as string[] | undefined)?.[0];
+      const msg = field === 'email' ? 'El correo electrónico ya está en uso.' : 'Ya existe un usuario con ese dato.';
+      res.status(409).json({ error: msg });
+      return;
+    }
     logger.error('USUARIOS: error al modificar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -203,6 +271,45 @@ export async function uploadUserPhoto(req: AuthRequest, res: Response): Promise<
     res.json(decryptUser(updated));
   } catch (error) {
     logger.error('USUARIOS: error al subir foto', { ...actor(req), error: (error as Error).message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function deleteUserPhoto(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+
+    if (req.user?.id !== id) {
+      logger.warn('USUARIOS: intento de eliminar foto sin permiso', { ...actor(req), targetUserId: id });
+      res.status(403).json({ error: 'Access denied' });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (existing.photoPath) {
+      const oldPath = path.join(process.cwd(), 'uploads', path.basename(existing.photoPath));
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { photoPath: null },
+      select: {
+        id: true, email: true, role: true, nombre: true, apellido: true,
+        dni: true, telefono: true, direccion: true, fechaNacimiento: true,
+        photoPath: true, active: true, createdAt: true, updatedAt: true,
+      },
+    });
+
+    logger.info('USUARIOS: foto eliminada', { ...actor(req), targetUserId: id, targetEmail: existing.email });
+    res.json(decryptUser(updated));
+  } catch (error) {
+    logger.error('USUARIOS: error al eliminar foto', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -345,6 +452,13 @@ export async function inviteUser(req: AuthRequest, res: Response): Promise<void>
       },
     });
 
+    // When inviting a CLIENTE, create the Client record (personal data lives in User)
+    if (assignedRole === 'CLIENTE') {
+      await prisma.client.create({
+        data: { userId: user.id },
+      });
+    }
+
     // Create invitation token (reuses PasswordResetToken table)
     const token = uuidv4();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -403,7 +517,17 @@ export async function createUser(req: AuthRequest, res: Response): Promise<void>
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       logger.warn('USUARIOS: intento de crear usuario con email ya registrado', { ...actor(req), emailDuplicado: email });
-      res.status(409).json({ error: 'Email already registered' });
+      res.status(409).json({ error: 'El correo electrónico ya está en uso.' });
+      return;
+    }
+
+    if (telefono && await isPhoneInUse(telefono)) {
+      res.status(409).json({ error: 'El número de teléfono ya está en uso.' });
+      return;
+    }
+
+    if (dni && await isIdInUse(dni)) {
+      res.status(409).json({ error: 'La cédula de identidad ya está en uso.' });
       return;
     }
 

@@ -6,7 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/Modal';
 import { useAuth } from '../context/AuthContext';
-import type { Caso, CasoEstado, CasoFormData, CasoHistorialEntry, CasoNovedad, CasoNovedadFormData, User, Client, Juzgado } from '../types';
+import type { Caso, CasoEstado, CasoFormData, CasoHistorialEntry, CasoNovedad, CasoNovedadFormData, DriveArchivo, User, Client, Juzgado } from '../types';
 
 const ESTADO_COLORS: Record<CasoEstado, string> = {
   ACTIVO: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
@@ -78,6 +78,8 @@ export function CasoDetail() {
   const [juzgados, setJuzgados] = useState<Juzgado[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({});
+  const [novedadFieldErrors, setNovedadFieldErrors] = useState<Record<string, string>>({});
 
   const canEdit = user?.role === 'ADMIN' || user?.role === 'ABOGADO' || user?.role === 'AUXILIAR';
 
@@ -109,6 +111,7 @@ export function CasoDetail() {
   async function openEdit() {
     if (!caso) return;
     setFormError('');
+    setEditFieldErrors({});
     setForm({
       titulo: caso.titulo,
       descripcion: caso.descripcion || '',
@@ -125,7 +128,7 @@ export function CasoDetail() {
     });
     const [abs, cls, jzs] = await Promise.all([
       usersApi.getAbogados(),
-      clientsApi.getAll(),
+      clientsApi.getAll({ all: true }),
       juzgadosApi.getAll(),
     ]);
     setAbogados(abs);
@@ -138,8 +141,12 @@ export function CasoDetail() {
     e.preventDefault();
     if (!caso) return;
     setFormError('');
-    if (form.abogadoIds.length === 0) { setFormError('Selecciona al menos un abogado.'); return; }
-    if (form.clienteIds.length === 0) { setFormError('Selecciona al menos un cliente.'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.titulo.trim()) errs.titulo = 'El título es requerido.';
+    if (form.abogadoIds.length === 0) errs.abogados = 'Selecciona al menos un abogado.';
+    if (form.clienteIds.length === 0) errs.clientes = 'Selecciona al menos un cliente.';
+    if (Object.keys(errs).length) { setEditFieldErrors(errs); return; }
+    setEditFieldErrors({});
     setIsSaving(true);
     try {
       await casosApi.update(caso.id, {
@@ -168,6 +175,7 @@ export function CasoDetail() {
     setNovedadForm(emptyNovedad);
     setAgendarToggle(false);
     setNovedadError('');
+    setNovedadFieldErrors({});
     setShowNovedadModal(true);
   }
 
@@ -182,6 +190,7 @@ export function CasoDetail() {
       fechaAgendada: hasAgenda ? n.fechaAgendada!.slice(0, 16) : null,
     });
     setNovedadError('');
+    setNovedadFieldErrors({});
     setShowNovedadModal(true);
   }
 
@@ -189,6 +198,12 @@ export function CasoDetail() {
     e.preventDefault();
     if (!id) return;
     setNovedadError('');
+    const errs: Record<string, string> = {};
+    if (!novedadForm.titulo.trim()) errs.titulo = 'El título es requerido.';
+    if (!novedadForm.fecha) errs.fecha = 'La fecha es requerida.';
+    if (!novedadForm.contenido.trim()) errs.contenido = 'El detalle es requerido.';
+    if (Object.keys(errs).length) { setNovedadFieldErrors(errs); return; }
+    setNovedadFieldErrors({});
     setIsSavingNovedad(true);
     const payload: CasoNovedadFormData = {
       ...novedadForm,
@@ -494,8 +509,140 @@ export function CasoDetail() {
           </Card>
         </div>
 
-        {/* RIGHT — Novedades */}
-        <div className="lg:sticky lg:top-6">
+        {/* RIGHT — Notificaciones + Novedades */}
+        <div className="lg:sticky lg:top-6 flex flex-col gap-4">
+
+          {/* ── Notificaciones (auto-generadas desde WhatsApp) ── */}
+          {(() => {
+            const notificaciones = novedades.filter((n) => n.esNotificacion);
+            if (notificaciones.length === 0) return null;
+            return (
+              <Card>
+                <div className="flex items-center gap-2 mb-4">
+                  <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Notificaciones
+                  </h3>
+                  <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({notificaciones.length})</span>
+                </div>
+                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                  {notificaciones.map((n) => {
+                    const isExpanded = expandedNovedad === n.id;
+                    let archivos: DriveArchivo[] = [];
+                    try { archivos = n.archivos ? JSON.parse(n.archivos) : []; } catch { archivos = []; }
+                    return (
+                      <div key={n.id} className="border border-amber-100 dark:border-amber-900/40 rounded-xl overflow-hidden">
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-colors"
+                          onClick={() => setExpandedNovedad(isExpanded ? null : n.id)}
+                        >
+                          <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                            <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{n.titulo}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className="text-xs text-gray-400 dark:text-gray-500">
+                                {new Date(n.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                              {archivos.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs font-medium">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                  </svg>
+                                  {archivos.length} archivo{archivos.length !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {n.fechaAgendada && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-medium">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  {new Date(n.fechaAgendada).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                  {' '}{new Date(n.fechaAgendada).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                              {n.googleCalendarEventId && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-medium">
+                                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
+                                  </svg>
+                                  Agendado
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {canEdit && (
+                              <button
+                                onClick={() => setDeleteNovedad(n.id)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                            <svg
+                              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="px-4 pb-4 pt-2 border-t border-amber-100 dark:border-amber-900/30 bg-amber-50/30 dark:bg-amber-900/10">
+                            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+                              {n.contenido}
+                            </p>
+                            {archivos.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-amber-100 dark:border-amber-900/30">
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Archivos en Drive</p>
+                                <div className="flex flex-col gap-1.5">
+                                  {archivos.map((f) => (
+                                    <a
+                                      key={f.driveId}
+                                      href={f.driveUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700 transition-colors group"
+                                    >
+                                      {f.tipo === 'pdf' ? (
+                                        <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                      ) : (
+                                        <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                      )}
+                                      <span className="text-xs text-gray-700 dark:text-gray-300 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                                        {f.nombre}
+                                      </span>
+                                      <svg className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                      </svg>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            );
+          })()}
+
+          {/* ── Novedades manuales ── */}
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -503,8 +650,8 @@ export function CasoDetail() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
                 Novedades
-                {novedades.length > 0 && (
-                  <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({novedades.length})</span>
+                {novedades.filter((n) => !n.esNotificacion).length > 0 && (
+                  <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({novedades.filter((n) => !n.esNotificacion).length})</span>
                 )}
               </h3>
               {canEdit && (
@@ -520,7 +667,7 @@ export function CasoDetail() {
               )}
             </div>
 
-            {novedades.length === 0 ? (
+            {novedades.filter((n) => !n.esNotificacion).length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                   <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -539,7 +686,7 @@ export function CasoDetail() {
               </div>
             ) : (
               <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-                {novedades.map((n) => {
+                {novedades.filter((n) => !n.esNotificacion).map((n) => {
                   const isExpanded = expandedNovedad === n.id;
                   return (
                     <div key={n.id} className="border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden">
@@ -632,7 +779,7 @@ export function CasoDetail() {
                 </svg>
               </button>
             </div>
-            <form onSubmit={handleSaveNovedad} className="p-6 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSaveNovedad} className="p-6 space-y-4 overflow-y-auto" noValidate>
               {novedadError && (
                 <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
                   {novedadError}
@@ -642,33 +789,48 @@ export function CasoDetail() {
                 <div className="col-span-2 flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Título *</label>
                   <input
-                    required
                     value={novedadForm.titulo}
                     onChange={(e) => setNovedadForm({ ...novedadForm, titulo: e.target.value })}
                     placeholder="Ej: Audiencia preliminar, Edicto publicado..."
-                    className={inputClass}
+                    className={`${inputClass} ${novedadFieldErrors.titulo ? 'border-red-400 focus:ring-red-400' : ''}`}
                   />
+                  {novedadFieldErrors.titulo && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {novedadFieldErrors.titulo}
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2 flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Fecha *</label>
                   <input
-                    required
                     type="date"
                     value={novedadForm.fecha}
                     onChange={(e) => setNovedadForm({ ...novedadForm, fecha: e.target.value })}
-                    className={inputClass}
+                    className={`${inputClass} ${novedadFieldErrors.fecha ? 'border-red-400 focus:ring-red-400' : ''}`}
                   />
+                  {novedadFieldErrors.fecha && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {novedadFieldErrors.fecha}
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2 flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Detalle *</label>
                   <textarea
-                    required
                     rows={5}
                     value={novedadForm.contenido}
                     onChange={(e) => setNovedadForm({ ...novedadForm, contenido: e.target.value })}
                     placeholder="Descripción detallada de la novedad, resumen de audiencia, resultado de diligencia..."
-                    className={`${inputClass} resize-none`}
+                    className={`${inputClass} resize-none ${novedadFieldErrors.contenido ? 'border-red-400 focus:ring-red-400' : ''}`}
                   />
+                  {novedadFieldErrors.contenido && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {novedadFieldErrors.contenido}
+                    </p>
+                  )}
                 </div>
 
                 {/* Agenda section */}
@@ -766,7 +928,7 @@ export function CasoDetail() {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto" noValidate>
               {formError && (
                 <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
                   {formError}
@@ -777,11 +939,16 @@ export function CasoDetail() {
                 <div className="col-span-2 flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Título *</label>
                   <input
-                    required
                     value={form.titulo}
                     onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                    className={inputClass}
+                    className={`${inputClass} ${editFieldErrors.titulo ? 'border-red-400 focus:ring-red-400' : ''}`}
                   />
+                  {editFieldErrors.titulo && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {editFieldErrors.titulo}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -844,7 +1011,7 @@ export function CasoDetail() {
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Abogados * <span className="text-xs text-gray-400 font-normal">({form.abogadoIds.length} seleccionado{form.abogadoIds.length !== 1 ? 's' : ''})</span>
                   </label>
-                  <div className="border border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto">
+                  <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${editFieldErrors.abogados ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
                     {abogados.map((a) => (
                       <label key={a.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
                         <input
@@ -858,6 +1025,12 @@ export function CasoDetail() {
                       </label>
                     ))}
                   </div>
+                  {editFieldErrors.abogados && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {editFieldErrors.abogados}
+                    </p>
+                  )}
                 </div>
 
                 {/* Clientes */}
@@ -865,7 +1038,7 @@ export function CasoDetail() {
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Clientes * <span className="text-xs text-gray-400 font-normal">({form.clienteIds.length} seleccionado{form.clienteIds.length !== 1 ? 's' : ''})</span>
                   </label>
-                  <div className="border border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto">
+                  <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${editFieldErrors.clientes ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
                     {clientes.map((cl) => (
                       <label key={cl.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
                         <input
@@ -875,10 +1048,17 @@ export function CasoDetail() {
                           className="w-4 h-4 accent-indigo-600"
                         />
                         <span className="text-sm text-gray-800 dark:text-gray-200">{cl.nombre} {cl.apellido}</span>
+                        {!cl.userActive && <span className="text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-full">Pendiente</span>}
                         <span className="text-xs text-gray-400 ml-auto">{cl.email}</span>
                       </label>
                     ))}
                   </div>
+                  {editFieldErrors.clientes && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {editFieldErrors.clientes}
+                    </p>
+                  )}
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-1">

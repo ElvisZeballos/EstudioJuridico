@@ -5,6 +5,7 @@ import {
   getWhatsAppStatus,
   disconnectWhatsAppHandler,
   triggerExtractionHandler,
+  testGroqHandler,
   debugWhatsAppHandler,
 } from '../controllers/whatsappController';
 
@@ -16,6 +17,7 @@ router.post('/connect', connectWhatsApp);
 router.get('/status', getWhatsAppStatus);
 router.delete('/disconnect', disconnectWhatsAppHandler);
 router.post('/run-extraction', requireRole('ABOGADO', 'ADMIN'), triggerExtractionHandler);
+router.get('/test-groq', requireRole('ABOGADO', 'ADMIN'), testGroqHandler);
 router.get('/debug', debugWhatsAppHandler);
 
 export default router;

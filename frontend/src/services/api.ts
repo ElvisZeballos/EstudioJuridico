@@ -145,11 +145,18 @@ export const usersApi = {
       })
       .then((r) => r.data);
   },
+
+  deletePhoto: (id: string) =>
+    api.delete<User>(`/users/${id}/photo`).then((r) => r.data),
+
+  changePassword: (id: string, data: { currentPassword: string; newPassword: string }) =>
+    api.post<{ message: string }>(`/users/${id}/change-password`, data).then((r) => r.data),
 };
 
 // Client endpoints
 export const clientsApi = {
-  getAll: () => api.get<Client[]>('/clients').then((r) => r.data),
+  getAll: (options?: { all?: boolean }) =>
+    api.get<Client[]>('/clients', { params: options?.all ? { all: 'true' } : undefined }).then((r) => r.data),
 
   getById: (id: string) => api.get<Client>(`/clients/${id}`).then((r) => r.data),
 
@@ -216,6 +223,9 @@ export const casoNovedadesApi = {
 
   getAgendadas: () =>
     api.get<CasoNovedad[]>('/novedades/agendadas').then((r) => r.data),
+
+  getNotificaciones: () =>
+    api.get<CasoNovedad[]>('/novedades/notificaciones').then((r) => r.data),
 };
 
 // Google Calendar endpoints

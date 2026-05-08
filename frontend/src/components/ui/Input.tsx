@@ -41,6 +41,7 @@ export function Input({
         )}
         <input
           id={inputId}
+          autoComplete="off"
           {...props}
           className={`
             w-full rounded-xl border px-4 py-2.5 text-sm

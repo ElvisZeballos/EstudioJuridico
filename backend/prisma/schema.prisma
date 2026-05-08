@@ -78,24 +78,17 @@ model PasswordResetToken {
 }
 
 model Client {
-  id              String              @id @default(uuid())
-  nombre          String
-  apellido        String
-  dni             String
-  email           String
-  telefono        String?
-  direccion       String?
-  fechaNacimiento String?
-  notas           String?
-  active          Boolean             @default(true)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  abogadoId       String?
-  abogado         User?               @relation("AbogadoClientes", fields: [abogadoId], references: [id])
-  userId          String?             @unique
-  user            User?               @relation("UserClientProfile", fields: [userId], references: [id])
-  casos           CasoCliente[]
-  referencias     ClientReferencia[]
+  id          String             @id @default(uuid())
+  userId      String             @unique
+  user        User               @relation("UserClientProfile", fields: [userId], references: [id])
+  abogadoId   String?
+  abogado     User?              @relation("AbogadoClientes", fields: [abogadoId], references: [id])
+  notas       String?
+  active      Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  casos       CasoCliente[]
+  referencias ClientReferencia[]
 }
 
 model ClientReferencia {
@@ -187,8 +180,8 @@ model CasoCliente {
 
 model Movimiento {
   id         String         @id @default(uuid())
-  casoId     String
-  caso       Caso           @relation(fields: [casoId], references: [id])
+  casoId     String?
+  caso       Caso?          @relation(fields: [casoId], references: [id])
   abogadoId  String
   abogado    User           @relation("AbogadoMovimientos", fields: [abogadoId], references: [id])
   tipo       TipoMovimiento
@@ -226,17 +219,19 @@ model WhatsAppMessage {
 }
 
 model CasoNovedad {
-  id                   String    @id @default(uuid())
-  casoId               String
-  caso                 Caso      @relation(fields: [casoId], references: [id])
-  autorId              String
-  autor                User      @relation("NovedadAutor", fields: [autorId], references: [id])
-  titulo               String
-  contenido            String
-  fecha                DateTime
-  fechaAgendada        DateTime?
+  id                    String    @id @default(uuid())
+  casoId                String
+  caso                  Caso      @relation(fields: [casoId], references: [id])
+  autorId               String
+  autor                 User      @relation("NovedadAutor", fields: [autorId], references: [id])
+  titulo                String
+  contenido             String
+  fecha                 DateTime
+  fechaAgendada         DateTime?
   googleCalendarEventId String?
-  active               Boolean   @default(true)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  esNotificacion        Boolean   @default(false)
+  archivos              String?   @db.Text
+  active                Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }

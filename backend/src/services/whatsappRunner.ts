@@ -12,12 +12,13 @@ import {
   softDisconnectSession,
   disconnectAllSessions,
 } from './whatsappService';
+import { analyzeNotificationsWithGroq } from './groqService';
+import { processGroqResults } from './notificationProcessor';
 import { logger } from '../config/logger';
 
 const prisma = new PrismaClient();
 
 const LOOK_BACK_MS = 24 * 60 * 60 * 1000;
-const CLEANUP_MS   = 48 * 60 * 60 * 1000;
 const MESSAGE_SETTLE_MS = 15_000; // wait after connect for WhatsApp to push delta
 
 const NOTIFICATION_KEYWORDS = ['juzgado', 'jusgado', 'notificaci', 'tribunal'];
@@ -184,13 +185,16 @@ async function filterNotifications(userDir: string): Promise<void> {
   const matching: Record<string, Conversation> = {};
 
   for (const [jid, conv] of Object.entries(output.conversaciones)) {
+    if (conv.esGrupo) continue;
+
     const hasMedia = conv.mensajes.some(
       (m) => m.tipo === 'imagen' || m.tipo === 'documento_pdf'
     );
     const hasNotifKeyword = conv.mensajes.some(
       (m) => m.tipo === 'texto' && hasKeyword(m.cuerpo)
     );
-    if (hasMedia && hasNotifKeyword) {
+    const allFromMe = conv.mensajes.every((m) => m.deMi);
+    if (hasMedia && hasNotifKeyword && !allFromMe) {
       matching[jid] = conv;
     }
   }
@@ -360,6 +364,11 @@ export async function runExtractionForUser(userId: string): Promise<void> {
   logger.info(`Runner manual: iniciando extracción para ${nombre} ${apellido}`);
 
   try {
+    const { count: deleted } = await prisma.whatsAppMessage.deleteMany({ where: { userId } });
+    if (deleted > 0) {
+      logger.info(`Runner manual: ${deleted} mensajes previos eliminados para ${nombre} ${apellido}`);
+    }
+
     await startWhatsAppSession(userId);
 
     const connected = await waitForConnected(userId, 60_000);
@@ -370,18 +379,12 @@ export async function runExtractionForUser(userId: string): Promise<void> {
 
     const userDir = await extractForUser(userId, nombre, apellido, runDir, 0);
 
-    const cutoff = new Date(Date.now() - CLEANUP_MS);
-    const { count } = await prisma.whatsAppMessage.deleteMany({
-      where: { userId, timestamp: { lt: cutoff } },
-    });
-    if (count > 0) {
-      logger.info(`Runner manual: ${count} mensajes viejos eliminados para ${nombre} ${apellido}`);
-    }
+    await filterNotifications(userDir);
+    await analyzeNotificationsWithGroq(userDir);
+    await processGroqResults(userDir, userId);
 
     await softDisconnectSession(userId);
     logger.info(`Runner manual: sesión de ${nombre} ${apellido} cerrada`);
-
-    await filterNotifications(userDir);
     logger.info(`Runner manual: extracción finalizada para ${nombre} ${apellido} — ${runDir}`);
 
   } catch (err) {
@@ -419,7 +422,13 @@ export async function runWhatsAppExtraction(): Promise<void> {
     logger.info(`Runner: [${i + 1}/${abogados.length}] procesando ${user.nombre} ${user.apellido}`);
 
     try {
-      // 1. Conectar
+      // 1. Limpiar mensajes previos antes de conectar
+      const { count: deleted } = await prisma.whatsAppMessage.deleteMany({ where: { userId: user.id } });
+      if (deleted > 0) {
+        logger.info(`Runner: ${deleted} mensajes previos eliminados para ${user.nombre} ${user.apellido}`);
+      }
+
+      // 2. Conectar
       await startWhatsAppSession(user.id);
 
       // 2. Esperar conexión (hasta 60 s)
@@ -434,24 +443,17 @@ export async function runWhatsAppExtraction(): Promise<void> {
       logger.info(`Runner: esperando mensajes de ${user.nombre} (${MESSAGE_SETTLE_MS / 1000}s)...`);
       await new Promise<void>((r) => setTimeout(r, MESSAGE_SETTLE_MS));
 
-      // 4. Extraer y generar JSON
+      // 3. Extraer y generar JSON
       const userDir = await extractForUser(user.id, user.nombre, user.apellido, runDir, i + 1);
 
-      // 5. Limpiar mensajes de más de 48h para este usuario
-      const cutoff = new Date(Date.now() - CLEANUP_MS);
-      const { count } = await prisma.whatsAppMessage.deleteMany({
-        where: { userId: user.id, timestamp: { lt: cutoff } },
-      });
-      if (count > 0) {
-        logger.info(`Runner: ${count} mensajes viejos eliminados para ${user.nombre} ${user.apellido}`);
-      }
+      // 4. Filtrar, analizar y procesar (sesión aún abierta para enviar WhatsApp)
+      await filterNotifications(userDir);
+      await analyzeNotificationsWithGroq(userDir);
+      await processGroqResults(userDir, user.id);
 
-      // 6. Cerrar sesión
+      // 5. Cerrar sesión
       await softDisconnectSession(user.id);
       logger.info(`Runner: sesión de ${user.nombre} ${user.apellido} cerrada`);
-
-      // 7. Filtrar notificaciones y limpiar archivos no relevantes
-      await filterNotifications(userDir);
 
     } catch (err) {
       logger.error(`Runner: error con ${user.nombre} ${user.apellido}: ${(err as Error).message}`);

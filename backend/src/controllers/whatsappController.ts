@@ -1,4 +1,6 @@
 import { Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { AuthRequest } from '../middleware/auth';
 import {
   startWhatsAppSession,
@@ -7,10 +9,39 @@ import {
   disconnectWhatsApp,
 } from '../services/whatsappService';
 import { runExtractionForUser } from '../services/whatsappRunner';
+import { analyzeNotificationsWithGroq } from '../services/groqService';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../config/logger';
 
 const prisma = new PrismaClient();
+
+function sanitizeName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\- ]/g, '_').trim().slice(0, 30);
+}
+
+async function findUserExtractionDir(userId: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { nombre: true, apellido: true },
+  });
+  if (!user) return null;
+
+  const folderSuffix = `_${sanitizeName(user.nombre)}_${sanitizeName(user.apellido)}`;
+  const tempDir = path.join(process.cwd(), 'temp');
+  if (!fs.existsSync(tempDir)) return null;
+
+  const dateFolders = fs.readdirSync(tempDir)
+    .filter((f) => f.startsWith('whatsapp_'))
+    .sort()
+    .reverse();
+
+  for (const dateFolder of dateFolders) {
+    const dateDir = path.join(tempDir, dateFolder);
+    const match = fs.readdirSync(dateDir).find((f) => f.endsWith(folderSuffix));
+    if (match) return path.join(dateDir, match);
+  }
+  return null;
+}
 
 export async function connectWhatsApp(req: AuthRequest, res: Response): Promise<void> {
   const userId = req.user!.id;
@@ -28,7 +59,7 @@ export async function getWhatsAppStatus(req: AuthRequest, res: Response): Promis
   try {
     const memStatus = getSessionStatus(userId);
     if (memStatus.status !== 'DISCONNECTED') {
-      res.json(memStatus);
+      res.json({ ...memStatus, hasSession: true });
       return;
     }
     const dbStatus = await getDbSessionStatus(userId);
@@ -61,6 +92,25 @@ export async function triggerExtractionHandler(req: AuthRequest, res: Response):
     logger.error(`Error en extracción manual de ${userId}: ${(err as Error).message}`)
   );
   res.json({ message: 'Extracción iniciada. Los resultados se guardarán en la carpeta temp del servidor.' });
+}
+
+export async function testGroqHandler(req: AuthRequest, res: Response): Promise<void> {
+  const { folder } = req.query;
+  if (!folder || typeof folder !== 'string') {
+    res.status(400).json({ error: 'Parámetro ?folder= requerido (ruta relativa dentro de temp/)' });
+    return;
+  }
+  const userDir = require('path').join(process.cwd(), 'temp', folder);
+  if (!require('fs').existsSync(userDir)) {
+    res.status(404).json({ error: `Carpeta no encontrada: ${userDir}` });
+    return;
+  }
+  try {
+    await analyzeNotificationsWithGroq(userDir);
+    res.json({ message: 'Análisis completado', userDir });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 }
 
 export async function debugWhatsAppHandler(req: AuthRequest, res: Response): Promise<void> {

@@ -45,6 +45,7 @@ export function Casos() {
   const [abogados, setAbogados] = useState<User[]>([]);
   const [clientes, setClientes] = useState<Client[]>([]);
   const [juzgados, setJuzgados] = useState<Juzgado[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const canWrite = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
   const canDelete = user?.role === 'ADMIN';
@@ -64,6 +65,7 @@ export function Casos() {
   async function openCreate() {
     setForm(emptyForm);
     setError('');
+    setFieldErrors({});
     await loadFormData();
     setShowModal(true);
   }
@@ -71,7 +73,7 @@ export function Casos() {
   async function loadFormData() {
     const [abogadosList, clients, juzgadosList] = await Promise.all([
       usersApi.getAbogados(),
-      clientsApi.getAll(),
+      clientsApi.getAll({ all: true }),
       juzgadosApi.getAll(),
     ]);
     setAbogados(abogadosList);
@@ -86,8 +88,12 @@ export function Casos() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (form.abogadoIds.length === 0) { setError('Selecciona al menos un abogado.'); return; }
-    if (form.clienteIds.length === 0) { setError('Selecciona al menos un cliente.'); return; }
+    const errs: Record<string, string> = {};
+    if (!form.titulo.trim()) errs.titulo = 'El título es requerido.';
+    if (form.abogadoIds.length === 0) errs.abogados = 'Selecciona al menos un abogado.';
+    if (form.clienteIds.length === 0) errs.clientes = 'Selecciona al menos un cliente.';
+    if (Object.keys(errs).length) { setFieldErrors(errs); return; }
+    setFieldErrors({});
     setIsSaving(true);
     try {
       const payload: CasoFormData = {
@@ -259,7 +265,7 @@ export function Casos() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto" noValidate>
               {error && (
                 <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
                   {error}
@@ -272,10 +278,15 @@ export function Casos() {
                   <input
                     value={form.titulo}
                     onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                    required
                     placeholder="Ej: Juicio por daños y perjuicios"
-                    className={inputClass}
+                    className={`${inputClass} ${fieldErrors.titulo ? 'border-red-400 focus:ring-red-400' : ''}`}
                   />
+                  {fieldErrors.titulo && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {fieldErrors.titulo}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -354,7 +365,7 @@ export function Casos() {
                   {abogados.length === 0 ? (
                     <p className="text-sm text-gray-400 dark:text-gray-500 py-2">No hay abogados disponibles.</p>
                   ) : (
-                    <div className="border border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto">
+                    <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${fieldErrors.abogados ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
                       {abogados.map((a) => (
                         <label key={a.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
                           <input
@@ -369,6 +380,12 @@ export function Casos() {
                       ))}
                     </div>
                   )}
+                  {fieldErrors.abogados && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {fieldErrors.abogados}
+                    </p>
+                  )}
                 </div>
 
                 {/* Clientes */}
@@ -379,7 +396,7 @@ export function Casos() {
                   {clientes.length === 0 ? (
                     <p className="text-sm text-gray-400 dark:text-gray-500 py-2">No hay clientes disponibles.</p>
                   ) : (
-                    <div className="border border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto">
+                    <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${fieldErrors.clientes ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
                       {clientes.map((cl) => (
                         <label key={cl.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
                           <input
@@ -389,10 +406,18 @@ export function Casos() {
                             className="w-4 h-4 accent-indigo-600"
                           />
                           <span className="text-sm text-gray-800 dark:text-gray-200">{cl.nombre} {cl.apellido}</span>
+                          {cl.dni && <span className="text-xs text-gray-400 font-mono">CI: {cl.dni}</span>}
+                          {!cl.userActive && <span className="text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-full">Pendiente</span>}
                           <span className="text-xs text-gray-400 ml-auto">{cl.email}</span>
                         </label>
                       ))}
                     </div>
+                  )}
+                  {fieldErrors.clientes && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {fieldErrors.clientes}
+                    </p>
                   )}
                 </div>
 

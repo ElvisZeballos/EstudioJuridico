@@ -1,5 +1,7 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 import { AuthRequest } from '../middleware/auth';
 import { encryptIfDefined, decryptIfDefined } from '../config/encryption';
 import { logger } from '../config/logger';
@@ -17,46 +19,77 @@ function actor(req: AuthRequest) {
 
 interface ClientRaw {
   id: string;
-  nombre: string;
-  apellido: string;
-  dni: string;
-  email: string;
-  telefono: string | null;
-  direccion: string | null;
-  fechaNacimiento: string | null;
+  userId: string;
+  abogadoId: string | null;
   notas: string | null;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
-  abogadoId: string | null;
-  userId: string | null;
+  user: {
+    id: string;
+    nombre: string;
+    apellido: string;
+    email: string;
+    dni: string | null;
+    telefono: string | null;
+    direccion: string | null;
+    fechaNacimiento: string | null;
+    active: boolean;
+    photoPath: string | null;
+  };
   abogado?: { id: string; nombre: string; apellido: string; email: string } | null;
   referencias?: { id: string; nombre: string; relacion: string; telefono: string }[];
 }
 
 function decryptClient(client: ClientRaw) {
   return {
-    ...client,
-    dni: decryptIfDefined(client.dni) ?? '',
-    telefono: decryptIfDefined(client.telefono),
-    direccion: decryptIfDefined(client.direccion),
-    fechaNacimiento: decryptIfDefined(client.fechaNacimiento),
+    id: client.id,
+    userId: client.userId,
+    abogadoId: client.abogadoId,
+    abogado: client.abogado ?? null,
     notas: decryptIfDefined(client.notas),
+    active: client.active,
+    createdAt: client.createdAt,
+    updatedAt: client.updatedAt,
     referencias: client.referencias ?? [],
+    // Personal data from User — single source of truth
+    nombre: client.user.nombre,
+    apellido: client.user.apellido,
+    email: client.user.email,
+    dni: decryptIfDefined(client.user.dni) ?? '',
+    telefono: decryptIfDefined(client.user.telefono),
+    direccion: decryptIfDefined(client.user.direccion),
+    fechaNacimiento: decryptIfDefined(client.user.fechaNacimiento),
+    photoPath: client.user.photoPath,
+    userActive: client.user.active,
   };
 }
 
 const CLIENT_INCLUDE = {
+  user: {
+    select: {
+      id: true, nombre: true, apellido: true, email: true,
+      dni: true, telefono: true, direccion: true, fechaNacimiento: true,
+      active: true, photoPath: true,
+    },
+  },
   abogado: { select: { id: true, nombre: true, apellido: true, email: true } },
-  referencias: { select: { id: true, nombre: true, relacion: true, telefono: true }, orderBy: { createdAt: 'asc' as const } },
+  referencias: {
+    select: { id: true, nombre: true, relacion: true, telefono: true },
+    orderBy: { createdAt: 'asc' as const },
+  },
 };
 
 export async function getAllClients(req: AuthRequest, res: Response): Promise<void> {
   try {
     const whereClause: Record<string, unknown> = { active: true };
 
-    if (req.user?.role === 'ABOGADO') {
-      whereClause.abogadoId = req.user.id;
+    if (req.user?.role === 'ABOGADO' && req.query.all !== 'true') {
+      whereClause.casos = {
+        some: {
+          caso: { abogados: { some: { abogadoId: req.user.id } } },
+        },
+      };
     }
 
     if (req.user?.role === 'CLIENTE') {
@@ -64,7 +97,6 @@ export async function getAllClients(req: AuthRequest, res: Response): Promise<vo
         where: { userId: req.user.id, active: true },
         include: CLIENT_INCLUDE,
       });
-
       if (!clientProfile) { res.json([]); return; }
       res.json([decryptClient(clientProfile)]);
       return;
@@ -88,30 +120,18 @@ export async function getClientById(req: AuthRequest, res: Response): Promise<vo
   try {
     const { id } = req.params;
 
-    const client = await prisma.client.findUnique({
-      where: { id },
-      include: CLIENT_INCLUDE,
-    });
-
+    const client = await prisma.client.findUnique({ where: { id }, include: CLIENT_INCLUDE });
     if (!client) {
-      logger.warn('CLIENTES: cliente no encontrado', { ...actor(req), targetClientId: id });
       res.status(404).json({ error: 'Client not found' });
       return;
     }
 
     if (req.user?.role === 'CLIENTE' && client.userId !== req.user.id) {
-      logger.warn('CLIENTES: acceso denegado al perfil', { ...actor(req), targetClientId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
     }
 
-    if (req.user?.role === 'ABOGADO' && client.abogadoId !== req.user.id) {
-      logger.warn('CLIENTES: abogado intentó acceder a cliente ajeno', { ...actor(req), targetClientId: id });
-      res.status(403).json({ error: 'Access denied' });
-      return;
-    }
-
-    logger.info('CLIENTES: perfil consultado', { ...actor(req), targetClientId: id, targetEmail: client.email });
+    logger.info('CLIENTES: perfil consultado', { ...actor(req), targetClientId: id });
     res.json(decryptClient(client));
   } catch (error) {
     logger.error('CLIENTES: error al consultar', { ...actor(req), error: (error as Error).message });
@@ -119,31 +139,47 @@ export async function getClientById(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
+// Creating a client = creating a User(CLIENTE) + Client record
 export async function createClient(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { nombre, apellido, dni, email, telefono, direccion, fechaNacimiento, notas, abogadoId, userId, referencias } = req.body;
+    const { nombre, apellido, email, dni, telefono, direccion, fechaNacimiento, notas, abogadoId, referencias } = req.body;
 
-    if (!nombre || !apellido || !dni || !email) {
-      res.status(400).json({ error: 'nombre, apellido, dni and email are required' });
+    if (!nombre || !apellido || !email) {
+      res.status(400).json({ error: 'nombre, apellido y email son requeridos' });
       return;
     }
 
-    const assignedAbogadoId = req.user?.role === 'ABOGADO' ? req.user.id : abogadoId;
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      res.status(409).json({ error: 'El email ya está registrado' });
+      return;
+    }
 
     const refs: { nombre: string; relacion: string; telefono: string }[] =
       Array.isArray(referencias) ? referencias.filter((r) => r.nombre && r.relacion && r.telefono) : [];
 
-    const client = await prisma.client.create({
+    const placeholderPassword = await bcrypt.hash(uuidv4(), 12);
+
+    const user = await prisma.user.create({
       data: {
-        nombre, apellido,
-        dni: encryptIfDefined(dni) ?? dni,
         email,
+        password: placeholderPassword,
+        nombre,
+        apellido,
+        role: 'CLIENTE',
+        active: false,
+        dni: encryptIfDefined(dni),
         telefono: encryptIfDefined(telefono),
         direccion: encryptIfDefined(direccion),
         fechaNacimiento: encryptIfDefined(fechaNacimiento),
+      },
+    });
+
+    const client = await prisma.client.create({
+      data: {
+        userId: user.id,
+        abogadoId: abogadoId || null,
         notas: encryptIfDefined(notas),
-        abogadoId: assignedAbogadoId || null,
-        userId: userId || null,
         referencias: refs.length > 0 ? { create: refs } : undefined,
       },
       include: CLIENT_INCLUDE,
@@ -152,9 +188,8 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
     logger.info('CLIENTES: cliente creado', {
       ...actor(req),
       nuevoClienteId: client.id,
-      nuevoClienteEmail: client.email,
-      nuevoClienteNombre: `${nombre} ${apellido}`,
-      abogadoAsignado: assignedAbogadoId || null,
+      nuevoUserId: user.id,
+      email,
     });
 
     res.status(201).json(decryptClient(client));
@@ -167,7 +202,7 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
 export async function updateClient(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { nombre, apellido, dni, email, telefono, direccion, fechaNacimiento, notas, abogadoId, active, referencias } = req.body;
+    const { notas, abogadoId, active, referencias, nombre, apellido, dni, telefono, direccion, fechaNacimiento } = req.body;
 
     const existing = await prisma.client.findUnique({ where: { id } });
     if (!existing) {
@@ -175,58 +210,45 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    if (req.user?.role === 'ABOGADO' && existing.abogadoId !== req.user.id) {
-      logger.warn('CLIENTES: abogado intentó editar cliente ajeno', { ...actor(req), targetClientId: id });
-      res.status(403).json({ error: 'Access denied' });
-      return;
-    }
-
     if (req.user?.role === 'CLIENTE') {
-      logger.warn('CLIENTES: cliente intentó editar registro', { ...actor(req), targetClientId: id });
       res.status(403).json({ error: 'Access denied' });
       return;
     }
 
-    const updateData: Record<string, unknown> = {
-      ...(nombre !== undefined && { nombre }),
-      ...(apellido !== undefined && { apellido }),
-      ...(email !== undefined && { email }),
-      ...(dni !== undefined && { dni: encryptIfDefined(dni) }),
-      ...(telefono !== undefined && { telefono: encryptIfDefined(telefono) }),
-      ...(direccion !== undefined && { direccion: encryptIfDefined(direccion) }),
-      ...(fechaNacimiento !== undefined && { fechaNacimiento: encryptIfDefined(fechaNacimiento) }),
-      ...(notas !== undefined && { notas: encryptIfDefined(notas) }),
-      ...(active !== undefined && { active }),
-    };
+    // Update User personal data if provided
+    const userUpdate: Record<string, unknown> = {};
+    if (nombre !== undefined) userUpdate.nombre = nombre;
+    if (apellido !== undefined) userUpdate.apellido = apellido;
+    if (dni !== undefined) userUpdate.dni = encryptIfDefined(dni);
+    if (telefono !== undefined) userUpdate.telefono = encryptIfDefined(telefono);
+    if (direccion !== undefined) userUpdate.direccion = encryptIfDefined(direccion);
+    if (fechaNacimiento !== undefined) userUpdate.fechaNacimiento = encryptIfDefined(fechaNacimiento);
 
-    if (req.user?.role === 'ADMIN' && abogadoId !== undefined) {
-      updateData.abogadoId = abogadoId || null;
+    if (Object.keys(userUpdate).length > 0) {
+      await prisma.user.update({ where: { id: existing.userId }, data: userUpdate });
     }
 
-    const camposModificados = Object.keys(updateData);
-
+    // Update Client-specific fields
+    const clientUpdate: Record<string, unknown> = {};
+    if (notas !== undefined) clientUpdate.notas = encryptIfDefined(notas);
+    if (active !== undefined) clientUpdate.active = active;
+    if (req.user?.role === 'ADMIN' && abogadoId !== undefined) {
+      clientUpdate.abogadoId = abogadoId || null;
+    }
     if (Array.isArray(referencias)) {
-      const refs = referencias.filter((r) => r.nombre && r.relacion && r.telefono);
-      updateData.referencias = {
+      clientUpdate.referencias = {
         deleteMany: {},
-        create: refs,
+        create: referencias.filter((r) => r.nombre && r.relacion && r.telefono),
       };
     }
 
     const updated = await prisma.client.update({
       where: { id },
-      data: updateData,
+      data: clientUpdate,
       include: CLIENT_INCLUDE,
     });
 
-    logger.info('CLIENTES: cliente modificado', {
-      ...actor(req),
-      targetClientId: id,
-      targetEmail: existing.email,
-      targetNombre: `${existing.nombre} ${existing.apellido}`,
-      camposModificados,
-    });
-
+    logger.info('CLIENTES: cliente modificado', { ...actor(req), targetClientId: id });
     res.json(decryptClient(updated));
   } catch (error) {
     logger.error('CLIENTES: error al modificar', { ...actor(req), error: (error as Error).message });
@@ -237,23 +259,16 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
 export async function deleteClient(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-
     const existing = await prisma.client.findUnique({ where: { id } });
     if (!existing) {
-      logger.warn('CLIENTES: cliente a eliminar no encontrado', { ...actor(req), targetClientId: id });
       res.status(404).json({ error: 'Client not found' });
       return;
     }
 
     await prisma.client.update({ where: { id }, data: { active: false } });
+    await prisma.user.update({ where: { id: existing.userId }, data: { active: false } });
 
-    logger.info('CLIENTES: cliente desactivado', {
-      ...actor(req),
-      targetClientId: id,
-      targetEmail: existing.email,
-      targetNombre: `${existing.nombre} ${existing.apellido}`,
-    });
-
+    logger.info('CLIENTES: cliente desactivado', { ...actor(req), targetClientId: id });
     res.json({ message: 'Client deactivated successfully' });
   } catch (error) {
     logger.error('CLIENTES: error al desactivar', { ...actor(req), error: (error as Error).message });
@@ -268,16 +283,11 @@ export async function getClientStats(_req: AuthRequest, res: Response): Promise<
       prisma.user.count({ where: { active: true } }),
       prisma.user.count({ where: { active: true, role: 'ABOGADO' } }),
       prisma.client.count({
-        where: {
-          active: true,
-          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-        },
+        where: { active: true, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
       }),
     ]);
-
     res.json({ totalClients, totalUsers, abogados, recentClients });
   } catch (error) {
-    console.error('GetClientStats error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

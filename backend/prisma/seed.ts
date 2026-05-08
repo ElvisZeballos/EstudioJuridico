@@ -6,8 +6,10 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database...');
 
-  // Create admin user
-  const adminPassword = await bcrypt.hash('Admin123!', 12);
+  const adminPassword   = await bcrypt.hash('Admin123!', 12);
+  const abogadoPassword = await bcrypt.hash('Abogado123!', 12);
+  const clientePassword = await bcrypt.hash('Cliente123!', 12);
+
   const admin = await prisma.user.upsert({
     where: { email: 'admin@estudiojuridico.com' },
     update: {},
@@ -20,10 +22,7 @@ async function main() {
       active: true,
     },
   });
-  console.log('Created admin:', admin.email);
 
-  // Create abogado
-  const abogadoPassword = await bcrypt.hash('Abogado123!', 12);
   const abogado = await prisma.user.upsert({
     where: { email: 'abogado@estudiojuridico.com' },
     update: {},
@@ -36,15 +35,13 @@ async function main() {
       active: true,
     },
   });
-  console.log('Created abogado:', abogado.email);
 
-  // Create cliente user
-  const clientePassword = await bcrypt.hash('Cliente123!', 12);
-  const clienteUser = await prisma.user.upsert({
-    where: { email: 'cliente@ejemplo.com' },
+  // All personal data lives in User — Client only stores relation data
+  const clienteUser1 = await prisma.user.upsert({
+    where: { email: 'roberto@ejemplo.com' },
     update: {},
     create: {
-      email: 'cliente@ejemplo.com',
+      email: 'roberto@ejemplo.com',
       password: clientePassword,
       nombre: 'Roberto',
       apellido: 'Martínez',
@@ -52,51 +49,47 @@ async function main() {
       active: true,
     },
   });
-  console.log('Created client user:', clienteUser.email);
 
-  // Create sample clients
-  const client1 = await prisma.client.upsert({
-    where: { id: 'sample-client-001' },
+  await prisma.client.upsert({
+    where: { userId: clienteUser1.id },
     update: {},
     create: {
-      id: 'sample-client-001',
-      nombre: 'Roberto',
-      apellido: 'Martínez',
-      dni: 'ENCRYPTED_DNI_1', // In real use, this would be encrypted
-      email: 'roberto@ejemplo.com',
-      telefono: 'ENCRYPTED_TEL_1',
+      userId: clienteUser1.id,
       abogadoId: abogado.id,
-      userId: clienteUser.id,
     },
   });
-  console.log('Created client:', client1.nombre);
 
-  const client2 = await prisma.client.upsert({
-    where: { id: 'sample-client-002' },
+  const clienteUser2 = await prisma.user.upsert({
+    where: { email: 'ana@ejemplo.com' },
     update: {},
     create: {
-      id: 'sample-client-002',
+      email: 'ana@ejemplo.com',
+      password: clientePassword,
       nombre: 'Ana',
       apellido: 'López',
-      dni: 'ENCRYPTED_DNI_2',
-      email: 'ana@ejemplo.com',
+      role: 'CLIENTE',
+      active: true,
+    },
+  });
+
+  await prisma.client.upsert({
+    where: { userId: clienteUser2.id },
+    update: {},
+    create: {
+      userId: clienteUser2.id,
       abogadoId: abogado.id,
     },
   });
-  console.log('Created client:', client2.nombre);
 
   console.log('\nSeed completed!');
-  console.log('\nLogin credentials:');
   console.log('Admin:   admin@estudiojuridico.com / Admin123!');
   console.log('Abogado: abogado@estudiojuridico.com / Abogado123!');
-  console.log('Cliente: cliente@ejemplo.com / Cliente123!');
+  console.log('Cliente: roberto@ejemplo.com / Cliente123!');
+  console.log('         ana@ejemplo.com / Cliente123!');
+
+  void admin;
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());
