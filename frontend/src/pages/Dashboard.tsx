@@ -330,7 +330,7 @@ export function Dashboard() {
   const [casosLoading, setCasosLoading] = useState(true);
   const [notificaciones, setNotificaciones] = useState<CasoNovedad[]>([]);
   const [previewNovedad, setPreviewNovedad] = useState<CasoNovedad | null>(null);
-  const [previewArchivo, setPreviewArchivo] = useState<{ nombre: string; driveId: string; driveUrl: string; tipo: 'pdf' | 'imagen' } | null>(null);
+  const [previewCtx, setPreviewCtx] = useState<{ files: { nombre: string; driveId: string; driveUrl: string; tipo: 'pdf' | 'imagen' }[]; idx: number } | null>(null);
 
   const isAdmin = user?.role === 'ADMIN';
   const isAbogado = user?.role === 'ABOGADO' || user?.role === 'AUXILIAR';
@@ -717,27 +717,200 @@ export function Dashboard() {
 
         </>
       ) : (
-        /* Simple layout for CLIENTE */
-        <div className={styles.actionsGrid}>
-          <Link to="/clients">
-            <Card hover className="flex items-start gap-4 group">
-              <div className={styles.actionIcon.indigo}><IconClients /></div>
-              <div>
-                <h3 className={styles.actionTitle}>Mi Expediente</h3>
-                <p className={styles.actionSubtitle}>Ver mi información legal</p>
+        /* CLIENTE dashboard */
+        <>
+          {/* Stat cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <StatCard title="Casos Activos"   value={casosLoading ? 0 : casosActivos.length}    color="green"  subtitle="en curso"    icon={<IconBriefcase />} />
+            <StatCard title="Pendientes"       value={casosLoading ? 0 : casosPendientes.length} color="amber"  subtitle="en espera"   icon={<IconBriefcase />} />
+            <StatCard title="Concluidos"       value={casosLoading ? 0 : casosConcluidos.length} color="blue"   subtitle="finalizados" icon={<IconBriefcase />} />
+            <StatCard title="Notificaciones"   value={notificaciones.length}                     color="indigo" subtitle="recibidas"   icon={<IconBell />} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 items-start">
+
+            {/* ── Mis casos ── */}
+            <Card>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                    <IconBriefcase />
+                  </div>
+                  Mis Casos
+                </h2>
+                <Link to="/casos" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium flex items-center gap-1">
+                  Ver todos <IconArrowRight />
+                </Link>
               </div>
+
+              {casosLoading ? (
+                <div className="space-y-3">
+                  {[1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)}
+                </div>
+              ) : casosVisibles.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                    <IconBriefcase />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">Sin casos activos</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Tu abogado te asignará casos próximamente.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                  {casosVisibles.map(caso => {
+                    const estado = ESTADO_CONFIG[caso.estado];
+                    return (
+                      <Link
+                        key={caso.id}
+                        to={`/casos/${caso.id}`}
+                        className="flex items-start gap-3 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 -mx-3 px-3 rounded-xl transition-colors group"
+                      >
+                        <span className={`mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ${estado.dotClass}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {caso.titulo}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+                            <span className={`px-1.5 py-0.5 rounded-full font-medium ${estado.classes}`}>{estado.label}</span>
+                            {caso.numero && <span>Exp. {caso.numero}</span>}
+                            {caso.juzgado && <span className="truncate">· {caso.juzgado.nombre}</span>}
+                          </div>
+                        </div>
+                        <span className="text-gray-300 dark:text-gray-600 group-hover:text-indigo-400 transition-colors shrink-0 mt-1">
+                          <IconChevronRight />
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!casosLoading && casosConcluidos.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <Link to="/casos" className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                    + {casosConcluidos.length} caso{casosConcluidos.length !== 1 ? 's' : ''} concluido{casosConcluidos.length !== 1 ? 's' : ''}
+                  </Link>
+                </div>
+              )}
             </Card>
-          </Link>
-          <Link to="/profile">
-            <Card hover className="flex items-start gap-4 group">
-              <div className={styles.actionIcon.green}><IconProfile /></div>
-              <div>
-                <h3 className={styles.actionTitle}>Mi Perfil</h3>
-                <p className={styles.actionSubtitle}>Actualizar datos personales</p>
-              </div>
-            </Card>
-          </Link>
-        </div>
+
+            {/* ── Columna derecha ── */}
+            <div className="space-y-5">
+
+              {/* Próximos eventos */}
+              {proximosEventos.length > 0 && (
+                <Card>
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                      <IconCalendar />
+                    </div>
+                    <h2 className="font-semibold text-gray-900 dark:text-white">Próximos Eventos</h2>
+                  </div>
+                  <div className="space-y-3">
+                    {proximosEventos.slice(0, 4).map(ev => {
+                      const fecha = new Date(ev.fechaAgendada!);
+                      const isHoy = fecha.toDateString() === now.toDateString();
+                      const manana = new Date(now);
+                      manana.setDate(manana.getDate() + 1);
+                      const esManana = fecha.toDateString() === manana.toDateString();
+                      return (
+                        <div key={ev.id} className="flex gap-3">
+                          <div className={`shrink-0 w-10 h-10 rounded-xl flex flex-col items-center justify-center ${isHoy ? 'bg-rose-100 dark:bg-rose-900/30' : 'bg-indigo-50 dark:bg-indigo-900/30'}`}>
+                            <span className={`text-sm font-bold leading-none ${isHoy ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                              {fecha.getDate()}
+                            </span>
+                            <span className={`text-[9px] uppercase font-medium mt-0.5 ${isHoy ? 'text-rose-400' : 'text-indigo-400 dark:text-indigo-500'}`}>
+                              {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-AR', { month: 'short' })}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate leading-tight">{ev.titulo}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-xs font-semibold font-mono text-indigo-600 dark:text-indigo-400">
+                                {fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {ev.caso && (
+                                <Link to={`/casos/${ev.casoId}`} className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-500 truncate">
+                                  · {ev.caso.titulo}
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              )}
+
+              {/* Notificaciones recientes */}
+              {notificaciones.length > 0 && (
+                <Card>
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                      <IconBell />
+                    </div>
+                    <h2 className="font-semibold text-gray-900 dark:text-white">Notificaciones</h2>
+                    <span className="ml-auto text-xs font-medium text-white bg-amber-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0">
+                      {notificaciones.length}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {notificaciones.slice(0, 5).map(n => (
+                      <button
+                        key={n.id}
+                        onClick={() => setPreviewNovedad(n)}
+                        className="w-full text-left flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-colors group"
+                      >
+                        <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400 mt-2" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors leading-tight">
+                            {n.titulo}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                            {new Date(n.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {n.caso && ` · ${n.caso.titulo}`}
+                          </p>
+                        </div>
+                        <IconChevronRight />
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Acciones rápidas */}
+              <Card>
+                <h2 className="font-semibold text-gray-900 dark:text-white mb-3">Acciones rápidas</h2>
+                <div className="space-y-1">
+                  {([
+                    { to: '/casos',   icon: <IconBriefcase />, label: 'Mis Casos',  sub: 'Ver el estado de mis expedientes', iconClass: styles.actionIcon.indigo },
+                    { to: '/clients', icon: <IconClients />,   label: 'Mi Expediente', sub: 'Ver mi información legal',      iconClass: styles.actionIcon.green  },
+                    { to: '/profile', icon: <IconProfile />,   label: 'Mi Perfil',  sub: 'Actualizar datos personales',     iconClass: styles.actionIcon.purple },
+                  ] as const).map(item => (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors group"
+                    >
+                      <div className={item.iconClass}>{item.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{item.sub}</p>
+                      </div>
+                      <span className="text-gray-300 dark:text-gray-600 group-hover:text-indigo-400 transition-colors">
+                        <IconChevronRight />
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </Card>
+
+            </div>
+          </div>
+        </>
       )}
 
       {/* Preview modal */}
@@ -809,7 +982,7 @@ export function Dashboard() {
                       {imagenes.map(img => (
                         <button
                           key={img.driveId}
-                          onClick={() => setPreviewArchivo(img)}
+                          onClick={() => setPreviewCtx({ files: archivos, idx: archivos.indexOf(img) })}
                           className="group relative block rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-indigo-400 transition-colors text-left"
                         >
                           <img
@@ -841,7 +1014,7 @@ export function Dashboard() {
                       {pdfs.map(pdf => (
                         <button
                           key={pdf.driveId}
-                          onClick={() => setPreviewArchivo(pdf)}
+                          onClick={() => setPreviewCtx({ files: archivos, idx: archivos.indexOf(pdf) })}
                           className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors group text-left"
                         >
                           <div className="shrink-0 w-9 h-9 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
@@ -885,65 +1058,74 @@ export function Dashboard() {
       })()}
 
       {/* File viewer modal */}
-      {previewArchivo && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          onClick={() => setPreviewArchivo(null)}
-        >
+      {previewCtx && (() => {
+        const current = previewCtx.files[previewCtx.idx];
+        const total = previewCtx.files.length;
+        const hasPrev = previewCtx.idx > 0;
+        const hasNext = previewCtx.idx < total - 1;
+        const navBtn = 'shrink-0 p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors';
+        return (
           <div
-            className={`relative flex flex-col rounded-2xl shadow-2xl overflow-hidden w-full max-w-3xl ${previewArchivo.tipo === 'pdf' ? 'bg-white dark:bg-gray-900' : 'bg-transparent'}`}
-            style={{ maxHeight: '90vh' }}
-            onClick={e => e.stopPropagation()}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setPreviewCtx(null)}
           >
-            {/* Header */}
-            <div className={`flex items-center justify-between gap-3 px-4 py-3 shrink-0 ${previewArchivo.tipo === 'imagen' ? 'bg-black/60 backdrop-blur-md' : 'bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                {previewArchivo.tipo === 'pdf' ? (
-                  <div className="shrink-0 w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-500">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                ) : (
-                  <div className="shrink-0 w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-white">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                )}
-                <p className={`text-sm font-medium truncate ${previewArchivo.tipo === 'imagen' ? 'text-white' : 'text-gray-800 dark:text-gray-100'}`}>
-                  {previewArchivo.nombre}
-                </p>
+            <div
+              className="relative flex flex-col rounded-2xl shadow-2xl overflow-hidden w-full max-w-3xl bg-gray-900"
+              style={{ maxHeight: '90vh' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 px-4 py-3 shrink-0 bg-gray-800 border-b border-gray-700">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {current.tipo === 'pdf' ? (
+                    <div className="shrink-0 w-7 h-7 rounded-lg bg-red-900/40 flex items-center justify-center text-red-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="shrink-0 w-7 h-7 rounded-lg bg-blue-900/40 flex items-center justify-center text-blue-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  <p className="text-sm font-medium truncate text-gray-100">{current.nombre}</p>
+                  {total > 1 && (
+                    <span className="shrink-0 text-xs text-gray-400 ml-1">{previewCtx.idx + 1} / {total}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {total > 1 && (
+                    <>
+                      <button disabled={!hasPrev} onClick={() => setPreviewCtx({ ...previewCtx, idx: previewCtx.idx - 1 })} className={navBtn} title="Anterior">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button disabled={!hasNext} onClick={() => setPreviewCtx({ ...previewCtx, idx: previewCtx.idx + 1 })} className={navBtn} title="Siguiente">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => setPreviewCtx(null)} className={navBtn} title="Cerrar">
+                    <IconX />
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => setPreviewArchivo(null)}
-                className={`shrink-0 p-1.5 rounded-lg transition-colors ${previewArchivo.tipo === 'imagen' ? 'text-white/70 hover:text-white hover:bg-white/20' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-              >
-                <IconX />
-              </button>
-            </div>
-            {/* Content */}
-            {previewArchivo.tipo === 'imagen' ? (
-              <div className="flex items-center justify-center p-3" style={{ maxHeight: 'calc(90vh - 52px)' }}>
-                <img
-                  src={`https://drive.google.com/uc?export=view&id=${previewArchivo.driveId}`}
-                  alt={previewArchivo.nombre}
-                  className="max-w-full rounded-xl object-contain shadow-2xl"
-                  style={{ maxHeight: 'calc(90vh - 72px)' }}
-                />
-              </div>
-            ) : (
               <iframe
-                src={`https://drive.google.com/file/d/${previewArchivo.driveId}/preview`}
+                key={current.driveId}
+                src={`https://drive.google.com/file/d/${current.driveId}/preview`}
                 className="w-full border-0"
                 style={{ height: '75vh' }}
-                title={previewArchivo.nombre}
+                title={current.nombre}
                 allow="autoplay"
               />
-            )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );

@@ -106,7 +106,9 @@ export async function processGroqResults(userDir: string, userId: string): Promi
               clientes: {
                 include: {
                   cliente: {
-                    select: { nombre: true, apellido: true, telefono: true },
+                    include: {
+                      user: { select: { nombre: true, apellido: true, telefono: true } },
+                    },
                   },
                 },
               },
@@ -167,20 +169,20 @@ export async function processGroqResults(userDir: string, userId: string): Promi
       // ── 4. WhatsApp al cliente ──────────────────────────────────────────────
       if (caso) {
         for (const cc of caso.clientes) {
-          const raw = decryptIfDefined(cc.cliente.telefono ?? null)?.replace(/\D/g, '') ?? '';
+          const raw = decryptIfDefined(cc.cliente.user.telefono ?? null)?.replace(/\D/g, '') ?? '';
           if (!raw) continue;
           // Normalizar a formato Bolivia: 591XXXXXXXX
           const phone = raw.startsWith('591') ? raw : `591${raw}`;
           if (phone.length < 11) {
-            logger.warn(`Processor: teléfono inválido para ${cc.cliente.nombre} — "${raw}"`);
+            logger.warn(`Processor: teléfono inválido para ${cc.cliente.user.nombre} — "${raw}"`);
             continue;
           }
           try {
             await sendWhatsAppMessage(userId, phone, resp.resumenCliente);
-            logger.info(`Processor: WhatsApp enviado a ${cc.cliente.nombre} ${cc.cliente.apellido}`);
+            logger.info(`Processor: WhatsApp enviado a ${cc.cliente.user.nombre} ${cc.cliente.user.apellido}`);
           } catch (err) {
             logger.warn(
-              `Processor: WhatsApp falló para ${cc.cliente.nombre} — ${(err as Error).message}`
+              `Processor: WhatsApp falló para ${cc.cliente.user.nombre} — ${(err as Error).message}`
             );
           }
         }

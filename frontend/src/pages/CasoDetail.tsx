@@ -65,6 +65,7 @@ export function CasoDetail() {
   const [deleteNovedad, setDeleteNovedad] = useState<string | null>(null);
   const [expandedNovedad, setExpandedNovedad] = useState<string | null>(null);
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [previewCtx, setPreviewCtx] = useState<{ files: DriveArchivo[]; idx: number } | null>(null);
 
   // Edit modal state
   const [showEdit, setShowEdit] = useState(false);
@@ -90,7 +91,7 @@ export function CasoDetail() {
     if (!id) return;
     const [c, h, n] = await Promise.all([
       casosApi.getById(id),
-      casosApi.getHistorial(id),
+      canEdit ? casosApi.getHistorial(id) : Promise.resolve([]),
       casoNovedadesApi.getByCaso(id),
     ]);
     setCaso(c);
@@ -287,12 +288,14 @@ export function CasoDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {canEdit && (
           <Button variant="outline" size="sm" onClick={() => navigate(`/casos/${id}/finanzas`)}>
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
             </svg>
             Finanzas
           </Button>
+          )}
           {canEdit && (
             <Button size="sm" onClick={openEdit}>
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -449,7 +452,7 @@ export function CasoDetail() {
           </Card>
 
           {/* Historial de cambios */}
-          <Card>
+          {canEdit && <Card>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -489,7 +492,7 @@ export function CasoDetail() {
                 ))}
               </ol>
             )}
-          </Card>
+          </Card>}
 
           {/* Timestamps */}
           <Card padding="sm" className="flex flex-col sm:flex-row sm:items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
@@ -598,19 +601,17 @@ export function CasoDetail() {
                         {isExpanded && (
                           <div className="px-4 pb-4 pt-2 border-t border-amber-100 dark:border-amber-900/30 bg-amber-50/30 dark:bg-amber-900/10">
                             <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
-                              {n.contenido}
+                              {n.contenido.split(/\n+Archivos:/i)[0].trim()}
                             </p>
                             {archivos.length > 0 && (
                               <div className="mt-3 pt-3 border-t border-amber-100 dark:border-amber-900/30">
                                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Archivos en Drive</p>
                                 <div className="flex flex-col gap-1.5">
                                   {archivos.map((f) => (
-                                    <a
+                                    <button
                                       key={f.driveId}
-                                      href={f.driveUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700 transition-colors group"
+                                      onClick={() => setPreviewCtx({ files: archivos, idx: archivos.indexOf(f) })}
+                                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700 transition-colors group w-full text-left"
                                     >
                                       {f.tipo === 'pdf' ? (
                                         <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -625,9 +626,9 @@ export function CasoDetail() {
                                         {f.nombre}
                                       </span>
                                       <svg className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                       </svg>
-                                    </a>
+                                    </button>
                                   ))}
                                 </div>
                               </div>
@@ -1170,6 +1171,91 @@ export function CasoDetail() {
           </div>
         </div>
       )}
+
+      {previewCtx && (() => {
+        const current = previewCtx.files[previewCtx.idx];
+        const total = previewCtx.files.length;
+        const hasPrev = previewCtx.idx > 0;
+        const hasNext = previewCtx.idx < total - 1;
+        const navBtn = 'shrink-0 p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors';
+        return (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setPreviewCtx(null)}
+          >
+            <div
+              className="relative flex flex-col rounded-2xl shadow-2xl overflow-hidden w-full max-w-3xl bg-gray-900"
+              style={{ maxHeight: '90vh' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 px-4 py-3 shrink-0 bg-gray-800 border-b border-gray-700">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {current.tipo === 'pdf' ? (
+                    <div className="shrink-0 w-7 h-7 rounded-lg bg-red-900/40 flex items-center justify-center text-red-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="shrink-0 w-7 h-7 rounded-lg bg-blue-900/40 flex items-center justify-center text-blue-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  <p className="text-sm font-medium truncate text-gray-100">{current.nombre}</p>
+                  {total > 1 && (
+                    <span className="shrink-0 text-xs text-gray-400 ml-1">{previewCtx.idx + 1} / {total}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {total > 1 && (
+                    <>
+                      <button
+                        disabled={!hasPrev}
+                        onClick={() => setPreviewCtx({ ...previewCtx, idx: previewCtx.idx - 1 })}
+                        className={navBtn}
+                        title="Anterior"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        disabled={!hasNext}
+                        onClick={() => setPreviewCtx({ ...previewCtx, idx: previewCtx.idx + 1 })}
+                        className={navBtn}
+                        title="Siguiente"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setPreviewCtx(null)}
+                    className={navBtn}
+                    title="Cerrar"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <iframe
+                key={current.driveId}
+                src={`https://drive.google.com/file/d/${current.driveId}/preview`}
+                className="w-full border-0"
+                style={{ height: '75vh' }}
+                title={current.nombre}
+                allow="autoplay"
+              />
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

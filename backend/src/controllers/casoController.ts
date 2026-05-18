@@ -22,7 +22,11 @@ const casoInclude = {
   },
   clientes: {
     include: {
-      cliente: { select: { id: true, nombre: true, apellido: true, email: true } },
+      cliente: {
+        include: {
+          user: { select: { nombre: true, apellido: true, email: true } },
+        },
+      },
     },
   },
   juzgado: { select: { id: true, nombre: true, ciudad: true } },
@@ -35,6 +39,22 @@ const casoInclude = {
     orderBy: { createdAt: 'asc' as const },
   },
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function transformCaso(caso: any) {
+  return {
+    ...caso,
+    clientes: caso.clientes.map((cl: any) => ({
+      ...cl,
+      cliente: {
+        id: cl.cliente.id,
+        nombre: cl.cliente.user.nombre,
+        apellido: cl.cliente.user.apellido,
+        email: cl.cliente.user.email,
+      },
+    })),
+  };
+}
 
 const ESTADO_LABELS: Record<string, string> = {
   ACTIVO: 'Activo',
@@ -67,7 +87,7 @@ export async function getAllCasos(req: AuthRequest, res: Response): Promise<void
     });
 
     logger.info('CASOS: listado consultado', { ...actor(req), total: casos.length });
-    res.json(casos);
+    res.json(casos.map(transformCaso));
   } catch (error) {
     logger.error('CASOS: error al listar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
@@ -102,7 +122,7 @@ export async function getCasoById(req: AuthRequest, res: Response): Promise<void
     }
 
     logger.info('CASOS: consultado', { ...actor(req), casoId: id });
-    res.json(caso);
+    res.json(transformCaso(caso));
   } catch (error) {
     logger.error('CASOS: error al consultar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
@@ -186,7 +206,7 @@ export async function createCaso(req: AuthRequest, res: Response): Promise<void>
     });
 
     logger.info('CASOS: creado', { ...actor(req), casoId: caso.id, titulo: caso.titulo });
-    res.status(201).json(caso);
+    res.status(201).json(transformCaso(caso));
   } catch (error) {
     logger.error('CASOS: error al crear', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
@@ -316,7 +336,7 @@ export async function updateCaso(req: AuthRequest, res: Response): Promise<void>
       casoId: id,
       cambios: changes.map((c) => c.campo),
     });
-    res.json(updated);
+    res.json(transformCaso(updated));
   } catch (error) {
     logger.error('CASOS: error al modificar', { ...actor(req), error: (error as Error).message });
     res.status(500).json({ error: 'Internal server error' });
