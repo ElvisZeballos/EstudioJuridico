@@ -145,11 +145,18 @@ export const usersApi = {
       })
       .then((r) => r.data);
   },
+
+  deletePhoto: (id: string) =>
+    api.delete<User>(`/users/${id}/photo`).then((r) => r.data),
+
+  changePassword: (id: string, data: { currentPassword: string; newPassword: string }) =>
+    api.post<{ message: string }>(`/users/${id}/change-password`, data).then((r) => r.data),
 };
 
 // Client endpoints
 export const clientsApi = {
-  getAll: () => api.get<Client[]>('/clients').then((r) => r.data),
+  getAll: (options?: { all?: boolean }) =>
+    api.get<Client[]>('/clients', { params: options?.all ? { all: 'true' } : undefined }).then((r) => r.data),
 
   getById: (id: string) => api.get<Client>(`/clients/${id}`).then((r) => r.data),
 
@@ -216,6 +223,9 @@ export const casoNovedadesApi = {
 
   getAgendadas: () =>
     api.get<CasoNovedad[]>('/novedades/agendadas').then((r) => r.data),
+
+  getNotificaciones: () =>
+    api.get<CasoNovedad[]>('/novedades/notificaciones').then((r) => r.data),
 };
 
 // Google Calendar endpoints
@@ -255,6 +265,21 @@ export const movimientosApi = {
 // Admin endpoints
 export const adminApi = {
   getStats: () => api.get<AdminStats>('/admin/stats').then((r) => r.data),
+};
+
+// WhatsApp endpoints
+export const whatsappApi = {
+  connect: () =>
+    api.post<{ qr: string | null; status: string }>('/whatsapp/connect').then((r) => r.data),
+
+  getStatus: () =>
+    api.get<{ status: string; qr: string | null; hasSession?: boolean }>('/whatsapp/status').then((r) => r.data),
+
+  disconnect: () =>
+    api.delete<{ message: string }>('/whatsapp/disconnect').then((r) => r.data),
+
+  runExtraction: () =>
+    api.post<{ message: string }>('/whatsapp/run-extraction').then((r) => r.data),
 };
 
 export default api;

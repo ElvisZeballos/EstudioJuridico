@@ -36,6 +36,7 @@ export function Juzgados() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<Juzgado | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => { load(); }, []);
 
@@ -53,6 +54,7 @@ export function Juzgados() {
     setEditing(null);
     setForm(emptyForm);
     setError('');
+    setFieldErrors({});
     setShowModal(true);
   }
 
@@ -67,12 +69,17 @@ export function Juzgados() {
       notas: j.notas || '',
     });
     setError('');
+    setFieldErrors({});
     setShowModal(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    const errs: Record<string, string> = {};
+    if (!form.nombre.trim()) errs.nombre = 'El nombre es requerido.';
+    if (Object.keys(errs).length) { setFieldErrors(errs); return; }
+    setFieldErrors({});
     setIsSaving(true);
     try {
       if (editing) {
@@ -216,7 +223,7 @@ export function Juzgados() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4" autoComplete="off" noValidate>
               {error && (
                 <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
                   {error}
@@ -233,10 +240,16 @@ export function Juzgados() {
                       const inferred = inferTipo(nombre);
                       setForm((p) => ({ ...p, nombre, tipo: inferred || p.tipo }));
                     }}
-                    required
                     placeholder="Ej: Juzgado 1° Civil"
-                    className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    autoComplete="off"
+                    className={`px-3 py-2 rounded-xl border bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${fieldErrors.nombre ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                   />
+                  {fieldErrors.nombre && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      {fieldErrors.nombre}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -256,7 +269,8 @@ export function Juzgados() {
                   <input
                     value={form.ciudad}
                     onChange={(e) => setForm({ ...form, ciudad: e.target.value })}
-                    placeholder="Ej: Buenos Aires"
+                    placeholder="Ej: Cochabamba"
+                    autoComplete="off"
                     className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -266,7 +280,8 @@ export function Juzgados() {
                   <input
                     value={form.direccion}
                     onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-                    placeholder="Ej: Av. Corrientes 1234"
+                    placeholder="Ej: Av. Heroínas E-0123"
+                    autoComplete="off"
                     className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -276,7 +291,8 @@ export function Juzgados() {
                   <input
                     value={form.telefono}
                     onChange={(e) => setForm({ ...form, telefono: e.target.value })}
-                    placeholder="Ej: +54 11 1234-5678"
+                    placeholder="Ej: +591 44123456"
+                    autoComplete="off"
                     className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>

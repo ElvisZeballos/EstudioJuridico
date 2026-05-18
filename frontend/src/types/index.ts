@@ -25,26 +25,25 @@ export interface ClientReferencia {
 
 export interface Client {
   id: string;
+  userId: string;
+  // Personal data — comes from linked User
   nombre: string;
   apellido: string;
-  dni: string;
   email: string;
+  dni: string;
   telefono?: string | null;
   direccion?: string | null;
   fechaNacimiento?: string | null;
+  photoPath?: string | null;
+  userActive: boolean;
+  // Client-specific
   notas?: string | null;
   active: boolean;
+  abogadoId?: string | null;
+  abogado?: { id: string; nombre: string; apellido: string; email: string } | null;
+  referencias: ClientReferencia[];
   createdAt: string;
   updatedAt: string;
-  abogadoId?: string | null;
-  abogado?: {
-    id: string;
-    nombre: string;
-    apellido: string;
-    email: string;
-  } | null;
-  userId?: string | null;
-  referencias: ClientReferencia[];
 }
 
 export interface AuthResponse {
@@ -98,6 +97,13 @@ export interface CasoDemandado {
   telefono?: string;
 }
 
+export interface DriveArchivo {
+  nombre: string;
+  driveId: string;
+  driveUrl: string;
+  tipo: 'pdf' | 'imagen';
+}
+
 export interface CasoNovedad {
   id: string;
   casoId: string;
@@ -109,6 +115,8 @@ export interface CasoNovedad {
   fecha: string;
   fechaAgendada?: string | null;
   googleCalendarEventId?: string | null;
+  esNotificacion?: boolean;
+  archivos?: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -177,8 +185,8 @@ export type TipoMovimiento = 'INGRESO' | 'EGRESO';
 
 export interface Movimiento {
   id: string;
-  casoId: string;
-  caso: { id: string; titulo: string; numero?: string | null };
+  casoId?: string | null;
+  caso?: { id: string; titulo: string; numero?: string | null } | null;
   abogadoId: string;
   abogado: { id: string; nombre: string; apellido: string; email: string };
   tipo: TipoMovimiento;
@@ -192,7 +200,7 @@ export interface Movimiento {
 }
 
 export interface MovimientoFormData {
-  casoId: string;
+  casoId?: string;
   tipo: TipoMovimiento;
   concepto: string;
   monto: number | string;

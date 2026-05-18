@@ -53,6 +53,7 @@ export function Users() {
   const [isInviting, setIsInviting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [resetSent, setResetSent] = useState<string | null>(null);
@@ -117,20 +118,14 @@ export function Users() {
     e.preventDefault();
     setFormError('');
 
-    if (!form.nombre || !form.apellido || !form.email) {
-      setFormError('Nombre, apellido y email son obligatorios.');
-      return;
-    }
-
-    if (!editingUser && !form.password) {
-      setFormError('La contraseña es obligatoria para nuevos usuarios.');
-      return;
-    }
-
-    if (form.password && form.password !== form.confirmPassword) {
-      setFormError('Las contraseñas no coinciden.');
-      return;
-    }
+    const errs: Record<string, string> = {};
+    if (!form.nombre.trim())   errs.nombre   = 'El nombre es requerido.';
+    if (!form.apellido.trim()) errs.apellido = 'El apellido es requerido.';
+    if (!form.email.trim())    errs.email    = 'El email es requerido.';
+    if (!editingUser && !form.password) errs.password = 'La contraseña es obligatoria.';
+    if (form.password && form.password !== form.confirmPassword) errs.confirmPassword = 'Las contraseñas no coinciden.';
+    if (Object.keys(errs).length) { setFieldErrors(errs); return; }
+    setFieldErrors({});
 
     setIsSaving(true);
     try {
@@ -303,7 +298,7 @@ export function Users() {
           </>
         }
       >
-        <form onSubmit={handleInvite} className="space-y-4">
+        <form onSubmit={handleInvite} className="space-y-4" autoComplete="off">
           {inviteError && (
             <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm border border-red-200 dark:border-red-800">
               {inviteError}
@@ -351,7 +346,7 @@ export function Users() {
           </>
         }
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off" noValidate>
           {formError && (
             <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm border border-red-200 dark:border-red-800">
               {formError}
@@ -364,6 +359,7 @@ export function Users() {
               onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
               required
               placeholder="Juan"
+              error={fieldErrors.nombre}
             />
             <Input
               label="Apellido"
@@ -371,6 +367,7 @@ export function Users() {
               onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
               required
               placeholder="Pérez"
+              error={fieldErrors.apellido}
             />
             <Input
               label="Email"
@@ -379,6 +376,7 @@ export function Users() {
               onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
               required
               placeholder="juan@email.com"
+              error={fieldErrors.email}
             />
             <Select
               label="Rol"
@@ -393,6 +391,7 @@ export function Users() {
               onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
               required={!editingUser}
               placeholder="••••••••"
+              error={fieldErrors.password}
             />
             <Input
               label="Confirmar contraseña"
@@ -400,18 +399,19 @@ export function Users() {
               value={form.confirmPassword}
               onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))}
               placeholder="••••••••"
+              error={fieldErrors.confirmPassword}
             />
             <Input
-              label="DNI"
+              label="CI"
               value={form.dni}
               onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))}
-              placeholder="12.345.678"
+              placeholder="1234567 CB"
             />
             <Input
               label="Teléfono"
               value={form.telefono}
               onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
-              placeholder="+54 11 1234-5678"
+              placeholder="+591 76543210"
             />
             <Input
               label="Fecha de nacimiento"
@@ -423,7 +423,7 @@ export function Users() {
               label="Dirección"
               value={form.direccion}
               onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
-              placeholder="Av. Corrientes 1234, CABA"
+              placeholder="Av. Blanco Galindo Km 5, Cochabamba"
             />
           </div>
         </form>

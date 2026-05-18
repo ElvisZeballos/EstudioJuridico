@@ -125,7 +125,7 @@ export function ClientDetail() {
 
         {/* Details grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <DetailRow label="DNI" value={client.dni} />
+          <DetailRow label="CI" value={client.dni} />
           <DetailRow label="Email" value={client.email} />
           <DetailRow label="Teléfono" value={client.telefono} />
           <DetailRow label="Fecha de nacimiento" value={client.fechaNacimiento} />

@@ -7,10 +7,12 @@ import {
   createUser,
   inviteUser,
   uploadUserPhoto,
+  deleteUserPhoto,
   sendPasswordReset,
+  changePassword,
 } from '../controllers/userController';
 import { authenticateToken, requireRole } from '../middleware/auth';
-import { uploadPhoto } from '../middleware/upload';
+import { uploadPhoto, processPhoto } from '../middleware/upload';
 
 const router = Router();
 
@@ -41,6 +43,8 @@ router.post('/:id/reset-password', requireRole('ADMIN'), sendPasswordReset);
 // Any authenticated user (with access check inside controller)
 router.get('/:id', getUserById);
 router.put('/:id', updateUser);
-router.post('/:id/photo', uploadPhoto.single('photo'), uploadUserPhoto);
+router.post('/:id/change-password', changePassword);
+router.post('/:id/photo', uploadPhoto.single('photo'), processPhoto, uploadUserPhoto);
+router.delete('/:id/photo', deleteUserPhoto);
 
 export default router;
