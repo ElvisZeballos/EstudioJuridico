@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { WhatsAppModal } from '../components/WhatsAppModal';
 import axios from 'axios';
+import type { User } from '../types';
 
 export function Profile() {
   const { user, updateUser } = useAuth();
@@ -43,6 +44,14 @@ export function Profile() {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [isDisconnectingGoogle, setIsDisconnectingGoogle] = useState(false);
 
+  // Auxiliares state (ABOGADO only)
+  const [myAuxiliares, setMyAuxiliares] = useState<User[]>([]);
+  const [allAuxiliares, setAllAuxiliares] = useState<User[]>([]);
+  const [auxLoading] = useState(false);
+  const [auxError, setAuxError] = useState('');
+  const [auxSuccess, setAuxSuccess] = useState('');
+  const [auxActionId, setAuxActionId] = useState<string | null>(null);
+
   useEffect(() => {
     whatsappApi.getStatus().then((data) => {
       setWhatsappConnected(data.status === 'CONNECTED');
@@ -50,6 +59,48 @@ export function Profile() {
     }).catch(() => {});
     googleCalendarApi.getStatus().then((data) => setGoogleConnected(data.connected)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (user?.role !== 'ABOGADO') return;
+    usersApi.getAuxiliares().then(setAllAuxiliares).catch(() => {});
+    usersApi.getMyAuxiliares().then(setMyAuxiliares).catch(() => {}); // silencioso hasta que exista la tabla
+  }, [user?.role]);
+
+  const handleAddAuxiliar = async (auxiliarId: string) => {
+    setAuxActionId(auxiliarId);
+    setAuxError('');
+    setAuxSuccess('');
+    try {
+      await usersApi.addAuxiliar(auxiliarId);
+      const [mine, all] = await Promise.all([usersApi.getMyAuxiliares(), usersApi.getAuxiliares()]);
+      setMyAuxiliares(mine);
+      setAllAuxiliares(all);
+      setAuxSuccess('Auxiliar asignado correctamente.');
+      setTimeout(() => setAuxSuccess(''), 3000);
+    } catch (err) {
+      setAuxError(axios.isAxiosError(err) ? (err.response?.data?.error || 'Error al asignar auxiliar.') : 'Error al asignar auxiliar.');
+    } finally {
+      setAuxActionId(null);
+    }
+  };
+
+  const handleRemoveAuxiliar = async (auxiliarId: string) => {
+    setAuxActionId(auxiliarId);
+    setAuxError('');
+    setAuxSuccess('');
+    try {
+      await usersApi.removeAuxiliar(auxiliarId);
+      setMyAuxiliares((prev) => prev.filter((a) => a.id !== auxiliarId));
+      setAuxSuccess('Auxiliar removido.');
+      setTimeout(() => setAuxSuccess(''), 3000);
+    } catch (err) {
+      setAuxError(axios.isAxiosError(err) ? (err.response?.data?.error || 'Error al remover auxiliar.') : 'Error al remover auxiliar.');
+    } finally {
+      setAuxActionId(null);
+    }
+  };
+
+  const availableAuxiliares = allAuxiliares.filter((a) => !myAuxiliares.some((m) => m.id === a.id));
 
   const handleConnectGoogle = async () => {
     try {
@@ -498,6 +549,114 @@ export function Profile() {
           </div>
         </Card>
       </form>
+
+      {/* Auxiliares card — ABOGADO only */}
+      {user?.role === 'ABOGADO' && (
+        <Card>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Mis auxiliares
+          </h3>
+
+          {auxSuccess && (
+            <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-sm">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              {auxSuccess}
+            </div>
+          )}
+          {auxError && (
+            <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
+              <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+              {auxError}
+            </div>
+          )}
+
+          {/* Current auxiliares */}
+          {myAuxiliares.length === 0 ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">No tenés auxiliares asignados.</p>
+          ) : (
+            <ul className="space-y-2 mb-4">
+              {myAuxiliares.map((aux) => (
+                <li key={aux.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center shrink-0">
+                      {aux.photoPath ? (
+                        <img src={`http://localhost:3001${aux.photoPath}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{aux.nombre[0]}{aux.apellido[0]}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{aux.nombre} {aux.apellido}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{aux.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveAuxiliar(aux.id)}
+                    disabled={auxActionId === aux.id}
+                    className="ml-3 p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    title="Remover auxiliar"
+                  >
+                    {auxActionId === aux.id ? (
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Add auxiliar */}
+          {availableAuxiliares.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Agregar auxiliar</p>
+              <ul className="space-y-2">
+                {availableAuxiliares.map((aux) => (
+                  <li key={aux.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                        {aux.photoPath ? (
+                          <img src={`http://localhost:3001${aux.photoPath}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-bold text-gray-400">{aux.nombre[0]}{aux.apellido[0]}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{aux.nombre} {aux.apellido}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{aux.email}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleAddAuxiliar(aux.id)}
+                      disabled={auxActionId === aux.id || auxLoading}
+                      className="ml-3 p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors disabled:opacity-50"
+                      title="Asignar auxiliar"
+                    >
+                      {auxActionId === aux.id ? (
+                        <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {availableAuxiliares.length === 0 && myAuxiliares.length > 0 && (
+            <p className="text-xs text-gray-400 dark:text-gray-500">No hay otros auxiliares disponibles.</p>
+          )}
+        </Card>
+      )}
 
       {/* Password modal */}
       {pwModal && (

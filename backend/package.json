@@ -2,12 +2,16 @@
   "name": "estudio-juridico-backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "npm run db:up && npx tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "seed": "ts-node prisma/seed-proper.ts"
+    "seed": "npx tsx prisma/seed-proper.ts",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "db:reset": "docker compose down -v && docker compose up -d db"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -20,6 +24,7 @@
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "express-rate-limit": "^7.5.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "googleapis": "^171.4.0",

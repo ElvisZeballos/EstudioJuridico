@@ -1,42 +1,31 @@
 import { useState, useEffect } from 'react';
 import { juzgadosApi } from '../services/api';
-import { ConfirmModal } from '../components/ui/Modal';
+import { Modal, ConfirmModal } from '../components/ui/Modal';
+import { Input, Select, Textarea } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
 import type { Juzgado, JuzgadoFormData } from '../types';
-import axios from 'axios';
-
-const TIPOS = ['Civil', 'Penal', 'Laboral', 'Familiar', 'Mercantil', 'Administrativo', 'Otro'];
-
-const TIPO_KEYWORDS: { keywords: string[]; tipo: string }[] = [
-  { keywords: ['civil', 'comercial'], tipo: 'Civil' },
-  { keywords: ['penal', 'criminal', 'crimen'], tipo: 'Penal' },
-  { keywords: ['laboral', 'trabajo', 'obrero'], tipo: 'Laboral' },
-  { keywords: ['familiar', 'familia', 'niñez', 'adolescencia', 'menores'], tipo: 'Familiar' },
-  { keywords: ['mercantil'], tipo: 'Mercantil' },
-  { keywords: ['administrativo', 'contencioso'], tipo: 'Administrativo' },
-];
-
-function inferTipo(nombre: string): string {
-  const lower = nombre.toLowerCase();
-  for (const { keywords, tipo } of TIPO_KEYWORDS) {
-    if (keywords.some((kw) => lower.includes(kw))) return tipo;
-  }
-  return '';
-}
+import { JUZGADO_TIPOS, inferJuzgadoTipo } from '../constants/juzgado';
+import { useFormState } from '../hooks/useFormState';
 
 const emptyForm: JuzgadoFormData = {
   nombre: '', tipo: '', direccion: '', ciudad: '', telefono: '', notas: '',
 };
+
+const TIPO_OPTIONS = [
+  { value: '', label: 'Sin especificar' },
+  ...JUZGADO_TIPOS.map((t) => ({ value: t, label: t })),
+];
 
 export function Juzgados() {
   const [juzgados, setJuzgados] = useState<Juzgado[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Juzgado | null>(null);
-  const [form, setForm] = useState<JuzgadoFormData>(emptyForm);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<Juzgado | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const {
+    form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit,
+  } = useFormState<JuzgadoFormData>(emptyForm);
 
   useEffect(() => { load(); }, []);
 
@@ -52,15 +41,13 @@ export function Juzgados() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
-    setError('');
-    setFieldErrors({});
+    reset();
     setShowModal(true);
   }
 
   function openEdit(j: Juzgado) {
     setEditing(j);
-    setForm({
+    reset({
       nombre: j.nombre,
       tipo: j.tipo || '',
       direccion: j.direccion || '',
@@ -68,20 +55,17 @@ export function Juzgados() {
       telefono: j.telefono || '',
       notas: j.notas || '',
     });
-    setError('');
-    setFieldErrors({});
     setShowModal(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
     const errs: Record<string, string> = {};
     if (!form.nombre.trim()) errs.nombre = 'El nombre es requerido.';
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
     setFieldErrors({});
-    setIsSaving(true);
-    try {
+
+    await submit(async () => {
       if (editing) {
         await juzgadosApi.update(editing.id, form);
       } else {
@@ -89,15 +73,7 @@ export function Juzgados() {
       }
       setShowModal(false);
       load();
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.error || 'Error al guardar.');
-      } else {
-        setError('Error de conexión.');
-      }
-    } finally {
-      setIsSaving(false);
-    }
+    });
   }
 
   async function handleDelete(j: Juzgado) {
@@ -120,15 +96,13 @@ export function Juzgados() {
             {juzgados.length} juzgado{juzgados.length !== 1 ? 's' : ''} registrado{juzgados.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20"
-        >
+        <Button onClick={openCreate} icon={
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
+        }>
           Nuevo juzgado
-        </button>
+        </Button>
       </div>
 
       {/* Content */}
@@ -209,128 +183,78 @@ export function Juzgados() {
       )}
 
       {/* Modal crear/editar */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {editing ? 'Editar juzgado' : 'Nuevo juzgado'}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editing ? 'Editar juzgado' : 'Nuevo juzgado'}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowModal(false)} disabled={isSaving}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="juzgado-form" isLoading={isSaving}>
+              {editing ? 'Guardar cambios' : 'Crear juzgado'}
+            </Button>
+          </>
+        }
+      >
+        <form id="juzgado-form" onSubmit={handleSubmit} className="space-y-4" autoComplete="off" noValidate>
+          {formError && (
+            <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+              {formError}
             </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4" autoComplete="off" noValidate>
-              {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nombre *</label>
-                  <input
-                    value={form.nombre}
-                    onChange={(e) => {
-                      const nombre = e.target.value;
-                      const inferred = inferTipo(nombre);
-                      setForm((p) => ({ ...p, nombre, tipo: inferred || p.tipo }));
-                    }}
-                    placeholder="Ej: Juzgado 1° Civil"
-                    autoComplete="off"
-                    className={`px-3 py-2 rounded-xl border bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${fieldErrors.nombre ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 dark:border-gray-600'}`}
-                  />
-                  {fieldErrors.nombre && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      {fieldErrors.nombre}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-                  <select
-                    value={form.tipo}
-                    onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-                    className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Sin especificar</option>
-                    {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ciudad</label>
-                  <input
-                    value={form.ciudad}
-                    onChange={(e) => setForm({ ...form, ciudad: e.target.value })}
-                    placeholder="Ej: Cochabamba"
-                    autoComplete="off"
-                    className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Dirección</label>
-                  <input
-                    value={form.direccion}
-                    onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-                    placeholder="Ej: Av. Heroínas E-0123"
-                    autoComplete="off"
-                    className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label>
-                  <input
-                    value={form.telefono}
-                    onChange={(e) => setForm({ ...form, telefono: e.target.value })}
-                    placeholder="Ej: +591 44123456"
-                    autoComplete="off"
-                    className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notas</label>
-                  <textarea
-                    value={form.notas}
-                    onChange={(e) => setForm({ ...form, notas: e.target.value })}
-                    rows={3}
-                    placeholder="Información adicional..."
-                    className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {isSaving ? (
-                    <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>Guardando...</>
-                  ) : editing ? 'Guardar cambios' : 'Crear juzgado'}
-                </button>
-              </div>
-            </form>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Nombre *"
+              value={form.nombre}
+              onChange={(e) => {
+                const nombre = e.target.value;
+                const inferred = inferJuzgadoTipo(nombre);
+                setForm((p) => ({ ...p, nombre, tipo: inferred || p.tipo }));
+              }}
+              placeholder="Ej: Juzgado 1° Civil"
+              error={fieldErrors.nombre}
+              containerClassName="col-span-2"
+            />
+            <Select
+              label="Tipo"
+              value={form.tipo ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value }))}
+              options={TIPO_OPTIONS}
+            />
+            <Input
+              label="Ciudad"
+              value={form.ciudad ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, ciudad: e.target.value }))}
+              placeholder="Ej: Cochabamba"
+            />
+            <Input
+              label="Dirección"
+              value={form.direccion ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
+              placeholder="Ej: Av. Heroínas E-0123"
+              containerClassName="col-span-2"
+            />
+            <Input
+              label="Teléfono"
+              value={form.telefono ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
+              placeholder="Ej: +591 44123456"
+              containerClassName="col-span-2"
+            />
+            <Textarea
+              label="Notas"
+              value={form.notas ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, notas: e.target.value }))}
+              rows={3}
+              placeholder="Información adicional..."
+              containerClassName="col-span-2"
+            />
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       <ConfirmModal
         isOpen={!!deleteConfirm}

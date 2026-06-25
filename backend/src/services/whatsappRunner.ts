@@ -2,7 +2,6 @@ import {
   downloadContentFromMessage,
   proto,
 } from '@whiskeysockets/baileys';
-import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import {
@@ -12,11 +11,10 @@ import {
   softDisconnectSession,
   disconnectAllSessions,
 } from './whatsappService';
-import { analyzeNotificationsWithGroq } from './groqService';
+import { analyzeNotificationsWithGroq } from '../infrastructure/groq';
 import { processGroqResults } from './notificationProcessor';
 import { logger } from '../config/logger';
-
-const prisma = new PrismaClient();
+import prisma from '../shared/prisma';
 
 const LOOK_BACK_MS = 24 * 60 * 60 * 1000;
 const MESSAGE_SETTLE_MS = 15_000; // wait after connect for WhatsApp to push delta
@@ -463,5 +461,24 @@ export async function runWhatsAppExtraction(): Promise<void> {
 
   // 7. Validar que no queden sesiones abiertas
   await disconnectAllSessions();
+
+  // 8. Limpiar carpetas temp con más de 7 días
+  const tempDir = path.join(process.cwd(), 'temp');
+  if (fs.existsSync(tempDir)) {
+    const cutoffMs = 7 * 24 * 60 * 60 * 1000;
+    for (const entry of fs.readdirSync(tempDir)) {
+      const entryPath = path.join(tempDir, entry);
+      try {
+        const stat = fs.statSync(entryPath);
+        if (stat.isDirectory() && Date.now() - stat.mtimeMs > cutoffMs) {
+          fs.rmSync(entryPath, { recursive: true, force: true });
+          logger.info(`Runner: carpeta temp eliminada — ${entryPath}`);
+        }
+      } catch (err) {
+        logger.warn(`Runner: no se pudo limpiar ${entryPath} — ${(err as Error).message}`);
+      }
+    }
+  }
+
   logger.info(`Runner WhatsApp finalizado — resultados en: ${runDir}`);
 }

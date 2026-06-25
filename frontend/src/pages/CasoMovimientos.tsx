@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { movimientosApi, casosApi } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { ConfirmModal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
+import { MovimientoForm } from '../components/MovimientoForm';
+import { useFormState } from '../hooks/useFormState';
+import { formatMoney } from '../utils/format';
 import type { Movimiento, MovimientoFormData, MovimientoStats, Caso, TipoMovimiento } from '../types';
+import axios from 'axios';
 
 const emptyForm: MovimientoFormData = {
   casoId: '',
@@ -16,13 +19,6 @@ const emptyForm: MovimientoFormData = {
   notas: '',
 };
 
-const inputClass =
-  'w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors';
-
-function formatMoney(n: number) {
-  return new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(n);
-}
-
 export function CasoMovimientos() {
   const { casoId } = useParams<{ casoId: string }>();
   const navigate = useNavigate();
@@ -30,15 +26,14 @@ export function CasoMovimientos() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [stats, setStats] = useState<MovimientoStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Movimiento | null>(null);
-  const [form, setForm] = useState<MovimientoFormData>(emptyForm);
-  const [isSaving, setIsSaving] = useState(false);
-  const [formError, setFormError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filterTipo, setFilterTipo] = useState<TipoMovimiento | 'TODOS'>('TODOS');
+
+  const { form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit } =
+    useFormState<MovimientoFormData>(emptyForm);
 
   async function load() {
     if (!casoId) return;
@@ -53,9 +48,9 @@ export function CasoMovimientos() {
       setStats(st);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.error || 'Error al cargar');
+        setLoadError(err.response?.data?.error || 'Error al cargar');
       } else {
-        setError('Error inesperado');
+        setLoadError('Error inesperado');
       }
     } finally {
       setIsLoading(false);
@@ -66,15 +61,13 @@ export function CasoMovimientos() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ ...emptyForm, casoId: casoId! });
-    setFormError('');
-    setFieldErrors({});
+    reset({ ...emptyForm, casoId: casoId! });
     setShowModal(true);
   }
 
   function openEdit(m: Movimiento) {
     setEditing(m);
-    setForm({
+    reset({
       casoId: m.casoId ?? undefined,
       tipo: m.tipo,
       concepto: m.concepto,
@@ -82,8 +75,6 @@ export function CasoMovimientos() {
       fecha: m.fecha.slice(0, 10),
       notas: m.notas || '',
     });
-    setFormError('');
-    setFieldErrors({});
     setShowModal(true);
   }
 
@@ -95,9 +86,8 @@ export function CasoMovimientos() {
     if (!form.fecha) errs.fecha = 'La fecha es requerida.';
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
     setFieldErrors({});
-    setIsSaving(true);
-    setFormError('');
-    try {
+
+    await submit(async () => {
       if (editing) {
         await movimientosApi.update(editing.id, form);
       } else {
@@ -105,15 +95,7 @@ export function CasoMovimientos() {
       }
       setShowModal(false);
       await load();
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        setFormError(err.response?.data?.error || 'Error al guardar');
-      } else {
-        setFormError('Error inesperado');
-      }
-    } finally {
-      setIsSaving(false);
-    }
+    });
   }
 
   async function handleDelete(id: string) {
@@ -142,7 +124,7 @@ export function CasoMovimientos() {
     );
   }
 
-  if (error || !caso) {
+  if (loadError || !caso) {
     return (
       <Card className="text-center py-16">
         <div className="flex flex-col items-center gap-4">
@@ -153,7 +135,7 @@ export function CasoMovimientos() {
           </div>
           <div>
             <p className="font-semibold text-gray-900 dark:text-white">Error al cargar</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{error || 'Caso no encontrado'}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{loadError || 'Caso no encontrado'}</p>
           </div>
           <Button variant="outline" onClick={() => navigate('/casos')}>Volver a casos</Button>
         </div>
@@ -297,130 +279,17 @@ export function CasoMovimientos() {
         )}
       </Card>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                {editing ? 'Editar movimiento' : 'Nuevo movimiento'}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4" noValidate>
-              {formError && (
-                <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
-                  {formError}
-                </div>
-              )}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo *</label>
-                <div className="flex rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden">
-                  {(['INGRESO', 'EGRESO'] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setForm({ ...form, tipo: t })}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                        form.tipo === t
-                          ? t === 'INGRESO'
-                            ? 'bg-green-500 text-white'
-                            : 'bg-red-500 text-white'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {t === 'INGRESO' ? '↑ Ingreso' : '↓ Egreso'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Concepto *</label>
-                <input
-                  value={form.concepto}
-                  onChange={(e) => setForm({ ...form, concepto: e.target.value })}
-                  placeholder="Ej: Honorarios, fotocopias, notificación..."
-                  className={`${inputClass} ${fieldErrors.concepto ? 'border-red-400 focus:ring-red-400' : ''}`}
-                />
-                {fieldErrors.concepto && (
-                  <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
-                    <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                    {fieldErrors.concepto}
-                  </p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Monto *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.monto}
-                    onChange={(e) => setForm({ ...form, monto: e.target.value })}
-                    placeholder="0.00"
-                    className={`${inputClass} ${fieldErrors.monto ? 'border-red-400 focus:ring-red-400' : ''}`}
-                  />
-                  {fieldErrors.monto && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      {fieldErrors.monto}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha *</label>
-                  <input
-                    type="date"
-                    value={form.fecha}
-                    onChange={(e) => setForm({ ...form, fecha: e.target.value })}
-                    className={`${inputClass} ${fieldErrors.fecha ? 'border-red-400 focus:ring-red-400' : ''}`}
-                  />
-                  {fieldErrors.fecha && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      {fieldErrors.fecha}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
-                <textarea
-                  rows={2}
-                  value={form.notas}
-                  onChange={(e) => setForm({ ...form, notas: e.target.value })}
-                  placeholder="Observaciones opcionales..."
-                  className={inputClass}
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" className="flex-1" disabled={isSaving}>
-                  {isSaving ? (
-                    <span className="flex items-center gap-2 justify-center">
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                      </svg>
-                      Guardando...
-                    </span>
-                  ) : editing ? 'Guardar cambios' : 'Crear registro'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <MovimientoForm
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSubmit={handleSubmit}
+        form={form}
+        setForm={setForm}
+        isSaving={isSaving}
+        formError={formError}
+        fieldErrors={fieldErrors}
+        isEditing={!!editing}
+      />
 
       <ConfirmModal
         isOpen={!!deleteConfirm}

@@ -2,20 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { casosApi, usersApi, clientsApi, juzgadosApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { ConfirmModal } from '../components/ui/Modal';
+import { Modal, ConfirmModal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
+import { Input, Select, Textarea } from '../components/ui/Input';
+import { useFormState } from '../hooks/useFormState';
+import { estadoInfo, CASO_ESTADOS } from '../constants/caso';
+import { toggleId } from '../utils/format';
 import type { Caso, CasoEstado, CasoFormData, User, Client, Juzgado } from '../types';
-import axios from 'axios';
-
-const ESTADOS: { value: CasoEstado; label: string; color: string }[] = [
-  { value: 'ACTIVO', label: 'Activo', color: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
-  { value: 'PENDIENTE', label: 'Pendiente', color: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300' },
-  { value: 'CONCLUIDO', label: 'Concluido', color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
-  { value: 'ARCHIVADO', label: 'Archivado', color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
-];
-
-function estadoInfo(estado: CasoEstado) {
-  return ESTADOS.find((e) => e.value === estado) ?? ESTADOS[0];
-}
 
 const emptyForm: CasoFormData = {
   titulo: '',
@@ -32,23 +25,24 @@ const emptyForm: CasoFormData = {
   demandados: [],
 };
 
+const ESTADO_OPTIONS = CASO_ESTADOS.map((e) => ({ value: e.value, label: e.label }));
+
 export function Casos() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [casos, setCasos] = useState<Caso[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState<CasoFormData>(emptyForm);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<Caso | null>(null);
   const [abogados, setAbogados] = useState<User[]>([]);
   const [clientes, setClientes] = useState<Client[]>([]);
   const [juzgados, setJuzgados] = useState<Juzgado[]>([]);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const canWrite = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
   const canDelete = user?.role === 'ADMIN';
+
+  const { form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit } =
+    useFormState<CasoFormData>(emptyForm);
 
   useEffect(() => { load(); }, []);
 
@@ -63,14 +57,7 @@ export function Casos() {
   }
 
   async function openCreate() {
-    setForm(emptyForm);
-    setError('');
-    setFieldErrors({});
-    await loadFormData();
-    setShowModal(true);
-  }
-
-  async function loadFormData() {
+    reset();
     const [abogadosList, clients, juzgadosList] = await Promise.all([
       usersApi.getAbogados(),
       clientsApi.getAll({ all: true }),
@@ -79,23 +66,19 @@ export function Casos() {
     setAbogados(abogadosList);
     setClientes(clients);
     setJuzgados(juzgadosList);
-  }
-
-  function toggleId(ids: string[], id: string): string[] {
-    return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+    setShowModal(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
     const errs: Record<string, string> = {};
     if (!form.titulo.trim()) errs.titulo = 'El título es requerido.';
     if (form.abogadoIds.length === 0) errs.abogados = 'Selecciona al menos un abogado.';
     if (form.clienteIds.length === 0) errs.clientes = 'Selecciona al menos un cliente.';
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
     setFieldErrors({});
-    setIsSaving(true);
-    try {
+
+    await submit(async () => {
       const payload: CasoFormData = {
         ...form,
         fechaInicio: form.fechaInicio || undefined,
@@ -105,15 +88,7 @@ export function Casos() {
       await casosApi.create(payload);
       setShowModal(false);
       load();
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.error || 'Error al guardar.');
-      } else {
-        setError('Error de conexión.');
-      }
-    } finally {
-      setIsSaving(false);
-    }
+    });
   }
 
   async function handleDelete(c: Caso) {
@@ -126,8 +101,13 @@ export function Casos() {
     }
   }
 
-  const inputClass =
-    'px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
+  const juzgadoOptions = [
+    { value: '', label: 'Sin juzgado asignado' },
+    ...juzgados.map((j) => ({
+      value: j.id,
+      label: `${j.nombre}${j.ciudad ? ` — ${j.ciudad}` : ''}`,
+    })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -140,15 +120,13 @@ export function Casos() {
           </p>
         </div>
         {canWrite && (
-          <button
-            onClick={openCreate}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20"
-          >
+          <Button onClick={openCreate} icon={
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
+          }>
             Nuevo caso
-          </button>
+          </Button>
         )}
       </div>
 
@@ -250,307 +228,222 @@ export function Casos() {
         </div>
       )}
 
-      {/* Modal crear/editar */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 dark:border-gray-700 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Nuevo caso
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      {/* Modal crear */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Nuevo caso"
+        size="xl"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowModal(false)} disabled={isSaving}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="caso-form" isLoading={isSaving}>
+              Crear caso
+            </Button>
+          </>
+        }
+      >
+        <form id="caso-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {formError && (
+            <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+              {formError}
             </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto" noValidate>
-              {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
-                  {error}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Título *"
+              value={form.titulo}
+              onChange={(e) => setForm((p) => ({ ...p, titulo: e.target.value }))}
+              placeholder="Ej: Juicio por daños y perjuicios"
+              error={fieldErrors.titulo}
+              containerClassName="col-span-2"
+            />
+            <Input
+              label="Nurej"
+              value={form.numero ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, numero: e.target.value }))}
+              placeholder="Ej: 12345/2024"
+            />
+            <Select
+              label="Estado"
+              value={form.estado ?? 'ACTIVO'}
+              onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value as CasoEstado }))}
+              options={ESTADO_OPTIONS}
+            />
+            <Select
+              label="Juzgado"
+              value={form.juzgadoId ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, juzgadoId: e.target.value }))}
+              options={juzgadoOptions}
+            />
+            <Input
+              label="Fecha de inicio"
+              type="date"
+              value={form.fechaInicio ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, fechaInicio: e.target.value }))}
+            />
+            <Input
+              label="Fecha de cierre"
+              type="date"
+              value={form.fechaCierre ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, fechaCierre: e.target.value }))}
+            />
+            <Textarea
+              label="Descripción"
+              value={form.descripcion ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
+              rows={2}
+              placeholder="Descripción del caso..."
+              containerClassName="col-span-2"
+            />
+
+            {/* Abogados */}
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Abogados * <span className="text-xs text-gray-400 font-normal">({form.abogadoIds.length} seleccionado{form.abogadoIds.length !== 1 ? 's' : ''})</span>
+              </label>
+              {abogados.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500 py-2">No hay abogados disponibles.</p>
+              ) : (
+                <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${fieldErrors.abogados ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
+                  {abogados.map((a) => (
+                    <label key={a.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.abogadoIds.includes(a.id)}
+                        onChange={() => setForm((p) => ({ ...p, abogadoIds: toggleId(p.abogadoIds, a.id) }))}
+                        className="w-4 h-4 accent-indigo-600"
+                      />
+                      <span className="text-sm text-gray-800 dark:text-gray-200">{a.nombre} {a.apellido}</span>
+                      <span className="text-xs text-gray-400 ml-auto">{a.email}</span>
+                    </label>
+                  ))}
                 </div>
               )}
+              {fieldErrors.abogados && (
+                <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                  {fieldErrors.abogados}
+                </p>
+              )}
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Título *</label>
-                  <input
-                    value={form.titulo}
-                    onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                    placeholder="Ej: Juicio por daños y perjuicios"
-                    className={`${inputClass} ${fieldErrors.titulo ? 'border-red-400 focus:ring-red-400' : ''}`}
-                  />
-                  {fieldErrors.titulo && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      {fieldErrors.titulo}
-                    </p>
-                  )}
+            {/* Clientes */}
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Clientes * <span className="text-xs text-gray-400 font-normal">({form.clienteIds.length} seleccionado{form.clienteIds.length !== 1 ? 's' : ''})</span>
+              </label>
+              {clientes.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500 py-2">No hay clientes disponibles.</p>
+              ) : (
+                <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${fieldErrors.clientes ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
+                  {clientes.map((cl) => (
+                    <label key={cl.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.clienteIds.includes(cl.id)}
+                        onChange={() => setForm((p) => ({ ...p, clienteIds: toggleId(p.clienteIds, cl.id) }))}
+                        className="w-4 h-4 accent-indigo-600"
+                      />
+                      <span className="text-sm text-gray-800 dark:text-gray-200">{cl.nombre} {cl.apellido}</span>
+                      {cl.dni && <span className="text-xs text-gray-400 font-mono">CI: {cl.dni}</span>}
+                      {!cl.userActive && <span className="text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-full">Pendiente</span>}
+                      <span className="text-xs text-gray-400 ml-auto">{cl.email}</span>
+                    </label>
+                  ))}
                 </div>
+              )}
+              {fieldErrors.clientes && (
+                <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                  {fieldErrors.clientes}
+                </p>
+              )}
+            </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nurej</label>
-                  <input
-                    value={form.numero}
-                    onChange={(e) => setForm({ ...form, numero: e.target.value })}
-                    placeholder="Ej: 12345/2024"
-                    className={inputClass}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
-                  <select
-                    value={form.estado}
-                    onChange={(e) => setForm({ ...form, estado: e.target.value as CasoEstado })}
-                    className={inputClass}
-                  >
-                    {ESTADOS.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Juzgado</label>
-                  <select
-                    value={form.juzgadoId}
-                    onChange={(e) => setForm({ ...form, juzgadoId: e.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="">Sin juzgado asignado</option>
-                    {juzgados.map((j) => (
-                      <option key={j.id} value={j.id}>
-                        {j.nombre}{j.ciudad ? ` — ${j.ciudad}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Fecha de inicio</label>
-                  <input
-                    type="date"
-                    value={form.fechaInicio}
-                    onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Fecha de cierre</label>
-                  <input
-                    type="date"
-                    value={form.fechaCierre}
-                    onChange={(e) => setForm({ ...form, fechaCierre: e.target.value })}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Descripción</label>
-                  <textarea
-                    value={form.descripcion}
-                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                    rows={2}
-                    placeholder="Descripción del caso..."
-                    className={`${inputClass} resize-none`}
-                  />
-                </div>
-
-                {/* Abogados */}
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Abogados * <span className="text-xs text-gray-400 font-normal">({form.abogadoIds.length} seleccionado{form.abogadoIds.length !== 1 ? 's' : ''})</span>
-                  </label>
-                  {abogados.length === 0 ? (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 py-2">No hay abogados disponibles.</p>
-                  ) : (
-                    <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${fieldErrors.abogados ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
-                      {abogados.map((a) => (
-                        <label key={a.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={form.abogadoIds.includes(a.id)}
-                            onChange={() => setForm({ ...form, abogadoIds: toggleId(form.abogadoIds, a.id) })}
-                            className="w-4 h-4 accent-indigo-600"
-                          />
-                          <span className="text-sm text-gray-800 dark:text-gray-200">{a.nombre} {a.apellido}</span>
-                          <span className="text-xs text-gray-400 ml-auto">{a.email}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                  {fieldErrors.abogados && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      {fieldErrors.abogados}
-                    </p>
-                  )}
-                </div>
-
-                {/* Clientes */}
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Clientes * <span className="text-xs text-gray-400 font-normal">({form.clienteIds.length} seleccionado{form.clienteIds.length !== 1 ? 's' : ''})</span>
-                  </label>
-                  {clientes.length === 0 ? (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 py-2">No hay clientes disponibles.</p>
-                  ) : (
-                    <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${fieldErrors.clientes ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
-                      {clientes.map((cl) => (
-                        <label key={cl.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={form.clienteIds.includes(cl.id)}
-                            onChange={() => setForm({ ...form, clienteIds: toggleId(form.clienteIds, cl.id) })}
-                            className="w-4 h-4 accent-indigo-600"
-                          />
-                          <span className="text-sm text-gray-800 dark:text-gray-200">{cl.nombre} {cl.apellido}</span>
-                          {cl.dni && <span className="text-xs text-gray-400 font-mono">CI: {cl.dni}</span>}
-                          {!cl.userActive && <span className="text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-full">Pendiente</span>}
-                          <span className="text-xs text-gray-400 ml-auto">{cl.email}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                  {fieldErrors.clientes && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      {fieldErrors.clientes}
-                    </p>
-                  )}
-                </div>
-
-                <div className="col-span-2 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notas</label>
-                  <textarea
-                    value={form.notas}
-                    onChange={(e) => setForm({ ...form, notas: e.target.value })}
-                    rows={2}
-                    placeholder="Notas internas..."
-                    className={`${inputClass} resize-none`}
-                  />
-                </div>
-              </div>
-
-              {/* Abogados de la contraparte */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Abogados de la contraparte</p>
-                  <button
-                    type="button"
-                    onClick={() => setForm((p) => ({ ...p, abogadosContraparte: [...p.abogadosContraparte, { nombre: '', direccion: '', telefono: '' }] }))}
-                    className="flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Agregar
-                  </button>
-                </div>
-                {form.abogadosContraparte.length === 0 && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin abogados de la contraparte.</p>
-                )}
-                {form.abogadosContraparte.map((ab, i) => (
-                  <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Nombre</label>
-                      <input value={ab.nombre} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x) }))} placeholder="Dr. García" className={inputClass} />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Dirección</label>
-                      <input value={ab.direccion ?? ''} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, direccion: e.target.value } : x) }))} placeholder="Av. Libertad 123" className={inputClass} />
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Teléfono</label>
-                        <input value={ab.telefono ?? ''} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, telefono: e.target.value } : x) }))} placeholder="+591 7..." className={inputClass} />
-                      </div>
-                      <button type="button" onClick={() => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.filter((_, j) => j !== i) }))} className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Demandados */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Demandados</p>
-                  <button
-                    type="button"
-                    onClick={() => setForm((p) => ({ ...p, demandados: [...p.demandados, { nombre: '', domicilio: '', carnet: '', telefono: '' }] }))}
-                    className="flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Agregar
-                  </button>
-                </div>
-                {form.demandados.length === 0 && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin demandados registrados.</p>
-                )}
-                {form.demandados.map((dem, i) => (
-                  <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Nombre</label>
-                      <input value={dem.nombre} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x) }))} placeholder="Juan Pérez" className={inputClass} />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Domicilio</label>
-                      <input value={dem.domicilio ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, domicilio: e.target.value } : x) }))} placeholder="Calle falsa 123" className={inputClass} />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Carnet</label>
-                      <input value={dem.carnet ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, carnet: e.target.value } : x) }))} placeholder="12345678" className={inputClass} />
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <div className="flex flex-col gap-1 flex-1">
-                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Teléfono</label>
-                        <input value={dem.telefono ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, telefono: e.target.value } : x) }))} placeholder="+591 7..." className={inputClass} />
-                      </div>
-                      <button type="button" onClick={() => setForm((p) => ({ ...p, demandados: p.demandados.filter((_, j) => j !== i) }))} className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {isSaving ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Guardando...
-                    </>
-                  ) : 'Crear caso'}
-                </button>
-              </div>
-            </form>
+            <Textarea
+              label="Notas"
+              value={form.notas ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, notas: e.target.value }))}
+              rows={2}
+              placeholder="Notas internas..."
+              containerClassName="col-span-2"
+            />
           </div>
-        </div>
-      )}
+
+          {/* Abogados de la contraparte */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Abogados de la contraparte</p>
+              <button
+                type="button"
+                onClick={() => setForm((p) => ({ ...p, abogadosContraparte: [...p.abogadosContraparte, { nombre: '', direccion: '', telefono: '' }] }))}
+                className="flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Agregar
+              </button>
+            </div>
+            {form.abogadosContraparte.length === 0 && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin abogados de la contraparte.</p>
+            )}
+            {form.abogadosContraparte.map((ab, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                <Input label="Nombre" value={ab.nombre} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x) }))} placeholder="Dr. García" />
+                <Input label="Dirección" value={ab.direccion ?? ''} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, direccion: e.target.value } : x) }))} placeholder="Av. Libertad 123" />
+                <div className="flex items-end gap-2">
+                  <Input label="Teléfono" value={ab.telefono ?? ''} onChange={(e) => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.map((x, j) => j === i ? { ...x, telefono: e.target.value } : x) }))} placeholder="+591 7..." containerClassName="flex-1" />
+                  <button type="button" onClick={() => setForm((p) => ({ ...p, abogadosContraparte: p.abogadosContraparte.filter((_, j) => j !== i) }))} className="mb-0.5 p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Demandados */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Demandados</p>
+              <button
+                type="button"
+                onClick={() => setForm((p) => ({ ...p, demandados: [...p.demandados, { nombre: '', domicilio: '', carnet: '', telefono: '' }] }))}
+                className="flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Agregar
+              </button>
+            </div>
+            {form.demandados.length === 0 && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin demandados registrados.</p>
+            )}
+            {form.demandados.map((dem, i) => (
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                <Input label="Nombre" value={dem.nombre} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, nombre: e.target.value } : x) }))} placeholder="Juan Pérez" />
+                <Input label="Domicilio" value={dem.domicilio ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, domicilio: e.target.value } : x) }))} placeholder="Calle falsa 123" />
+                <Input label="Carnet" value={dem.carnet ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, carnet: e.target.value } : x) }))} placeholder="12345678" />
+                <div className="flex items-end gap-2">
+                  <Input label="Teléfono" value={dem.telefono ?? ''} onChange={(e) => setForm((p) => ({ ...p, demandados: p.demandados.map((x, j) => j === i ? { ...x, telefono: e.target.value } : x) }))} placeholder="+591 7..." containerClassName="flex-1" />
+                  <button type="button" onClick={() => setForm((p) => ({ ...p, demandados: p.demandados.filter((_, j) => j !== i) }))} className="mb-0.5 p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </form>
+      </Modal>
 
       <ConfirmModal
         isOpen={!!deleteConfirm}

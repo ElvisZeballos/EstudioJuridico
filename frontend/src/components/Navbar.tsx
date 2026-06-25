@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { ROLE_LABELS } from '../constants/roles';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -64,12 +65,7 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const roleLabels: Record<string, string> = {
-    ADMIN: 'Administrador',
-    ABOGADO: 'Abogado',
-    CLIENTE: 'Cliente',
-    AUXILIAR: 'Auxiliar',
-  };
+  const roleLabels = ROLE_LABELS;
 
   return (
     <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">

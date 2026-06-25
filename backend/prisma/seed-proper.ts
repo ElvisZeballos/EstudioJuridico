@@ -85,50 +85,60 @@ async function main() {
 
   // Sample clients
   await prisma.client.upsert({
-    where: { id: 'sample-client-001' },
+    where: { userId: clienteUser.id },
     update: {},
     create: {
-      id: 'sample-client-001',
-      nombre: 'Roberto',
-      apellido: 'Martínez',
-      dni: encrypt('30456789'),
-      email: 'roberto@ejemplo.com',
-      telefono: encrypt('+54 11 4000-0003'),
-      direccion: encrypt('Av. Corrientes 1234, CABA'),
-      fechaNacimiento: encrypt('1985-06-15'),
-      notas: encrypt('Cliente desde 2024. Caso de sucesión familiar.'),
-      abogadoId: abogado.id,
       userId: clienteUser.id,
+      notas: 'Cliente desde 2024. Caso de sucesión familiar.',
+      abogadoId: abogado.id,
     },
   });
 
-  await prisma.client.upsert({
-    where: { id: 'sample-client-002' },
+  const anaUser = await prisma.user.upsert({
+    where: { email: 'ana.lopez@ejemplo.com' },
     update: {},
     create: {
-      id: 'sample-client-002',
+      email: 'ana.lopez@ejemplo.com',
+      password: await bcrypt.hash('Cliente123!', 12),
       nombre: 'Ana',
       apellido: 'López',
+      role: 'CLIENTE',
       dni: encrypt('27654321'),
-      email: 'ana.lopez@ejemplo.com',
       telefono: encrypt('+54 11 4000-0004'),
-      direccion: encrypt('Calle Florida 567, CABA'),
-      fechaNacimiento: encrypt('1990-03-22'),
-      notas: encrypt('Consulta laboral. En proceso.'),
-      abogadoId: abogado.id,
+      active: true,
     },
   });
 
   await prisma.client.upsert({
-    where: { id: 'sample-client-003' },
+    where: { userId: anaUser.id },
     update: {},
     create: {
-      id: 'sample-client-003',
+      userId: anaUser.id,
+      notas: 'Consulta laboral. En proceso.',
+      abogadoId: abogado.id,
+    },
+  });
+
+  const diegoUser = await prisma.user.upsert({
+    where: { email: 'diego.fernandez@ejemplo.com' },
+    update: {},
+    create: {
+      email: 'diego.fernandez@ejemplo.com',
+      password: await bcrypt.hash('Cliente123!', 12),
       nombre: 'Diego',
       apellido: 'Fernández',
+      role: 'CLIENTE',
       dni: encrypt('33112233'),
-      email: 'diego.fernandez@ejemplo.com',
       telefono: encrypt('+54 11 4000-0005'),
+      active: true,
+    },
+  });
+
+  await prisma.client.upsert({
+    where: { userId: diegoUser.id },
+    update: {},
+    create: {
+      userId: diegoUser.id,
       abogadoId: abogado.id,
     },
   });

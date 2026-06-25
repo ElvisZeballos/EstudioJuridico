@@ -10,11 +10,9 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
-import { PrismaClient } from '@prisma/client';
 import pino from 'pino';
 import { logger } from '../config/logger';
-
-const prisma = new PrismaClient();
+import prisma from '../shared/prisma';
 const baileysLogger = pino({ level: 'silent' });
 
 const MAX_RECONNECT_ATTEMPTS = 5;

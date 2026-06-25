@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useMemo, FormEvent } from 'react';
 import { usersApi } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -7,6 +7,7 @@ import { Modal, ConfirmModal } from '../components/ui/Modal';
 import type { User, UserFormData, Role } from '../types';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { ROLE_BADGE_CLASS, ROLE_OPTIONS, API_BASE_URL } from '../constants/roles';
 
 const emptyForm: UserFormData & { confirmPassword: string } = {
   nombre: '',
@@ -22,20 +23,6 @@ const emptyForm: UserFormData & { confirmPassword: string } = {
 };
 
 const emptyInviteForm = { email: '', role: 'CLIENTE' as Role };
-
-const roleOptions = [
-  { value: 'ADMIN', label: 'Administrador' },
-  { value: 'ABOGADO', label: 'Abogado' },
-  { value: 'CLIENTE', label: 'Cliente' },
-  { value: 'AUXILIAR', label: 'Auxiliar' },
-];
-
-const roleBadgeClass: Record<Role, string> = {
-  ADMIN: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-  ABOGADO: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  CLIENTE: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  AUXILIAR: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-};
 
 export function Users() {
   const { user: currentUser } = useAuth();
@@ -74,15 +61,19 @@ export function Users() {
     }
   }
 
-  const filtered = users.filter((u) => {
-    const q = searchTerm.toLowerCase();
-    return (
-      u.nombre.toLowerCase().includes(q) ||
-      u.apellido.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.role.toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(
+    () =>
+      users.filter((u) => {
+        const q = searchTerm.toLowerCase();
+        return (
+          u.nombre.toLowerCase().includes(q) ||
+          u.apellido.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          u.role.toLowerCase().includes(q)
+        );
+      }),
+    [users, searchTerm],
+  );
 
   function openInvite() {
     setInviteForm(emptyInviteForm);
@@ -228,7 +219,7 @@ export function Users() {
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
                 {u.photoPath ? (
                   <img
-                    src={`http://localhost:3001${u.photoPath}`}
+                    src={`${API_BASE_URL}${u.photoPath}`}
                     alt={u.nombre}
                     className="w-full h-full object-cover"
                   />
@@ -248,7 +239,7 @@ export function Users() {
                       <span className="ml-1 text-xs text-gray-400">(Tú)</span>
                     )}
                   </h3>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${roleBadgeClass[u.role]}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_BADGE_CLASS[u.role]}`}>
                     {u.role}
                   </span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'}`}>
@@ -324,7 +315,7 @@ export function Users() {
             label="Rol"
             value={inviteForm.role}
             onChange={(e) => setInviteForm((p) => ({ ...p, role: e.target.value as Role }))}
-            options={roleOptions}
+            options={ROLE_OPTIONS as { value: string; label: string }[]}
           />
         </form>
       </Modal>
@@ -382,7 +373,7 @@ export function Users() {
               label="Rol"
               value={form.role ?? 'CLIENTE'}
               onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as Role }))}
-              options={roleOptions}
+              options={ROLE_OPTIONS as { value: string; label: string }[]}
             />
             <Input
               label={editingUser ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}

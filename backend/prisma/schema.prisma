@@ -51,6 +51,17 @@ model User {
   novedades          CasoNovedad[]        @relation("NovedadAutor")
   whatsappSession    WhatsAppSession?
   whatsappMessages   WhatsAppMessage[]
+  auxiliares         AbogadoAuxiliar[] @relation("AbogadoAuxiliares")
+  abogados           AbogadoAuxiliar[] @relation("AuxiliarAbogados")
+}
+
+model AbogadoAuxiliar {
+  abogadoId  String
+  auxiliarId String
+  abogado    User   @relation("AbogadoAuxiliares", fields: [abogadoId], references: [id])
+  auxiliar   User   @relation("AuxiliarAbogados", fields: [auxiliarId], references: [id])
+
+  @@id([abogadoId, auxiliarId])
 }
 
 model Juzgado {

@@ -1,15 +1,13 @@
-import { PrismaClient } from '@prisma/client';
-import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../config/logger';
 import { decryptIfDefined } from '../config/encryption';
-import { createCalendarEvent } from './googleCalendar';
-import { uploadToDrive } from './googleDrive';
+import { createCalendarEvent } from '../infrastructure/googleCalendar';
+import { uploadToDrive } from '../infrastructure/googleDrive';
+import { sendEmailWithAttachments } from '../infrastructure/email';
 import { sendWhatsAppMessage } from './whatsappService';
-import type { GroqAnalysis } from './groqService';
-
-const prisma = new PrismaClient();
+import type { GroqAnalysis } from '../infrastructure/groq';
+import prisma from '../shared/prisma';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,15 +19,6 @@ interface DriveFile {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function makeTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
-}
 
 function mimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
@@ -84,8 +73,6 @@ export async function processGroqResults(userDir: string, userId: string): Promi
     select: { email: true, googleRefreshToken: true, nombre: true, apellido: true },
   });
   if (!abogado) return;
-
-  const transporter = makeTransporter();
 
   for (const [key, resp] of entries) {
     logger.info(`Processor: procesando ${key} — nurej: ${resp.nurej ?? 'sin NUREJ'}`);
@@ -151,18 +138,14 @@ export async function processGroqResults(userDir: string, userId: string): Promi
               .join('')}</ul>`
           : '';
 
+      const html = `<div style="font-family:Arial,sans-serif;max-width:600px">
+        <h2>${asunto}</h2>
+        <p style="white-space:pre-line">${resp.resumenAbogado}</p>
+        ${driveHtml}
+      </div>`;
+
       for (const ab of abogadosDestino) {
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM,
-          to: ab.email,
-          subject: asunto,
-          html: `<div style="font-family:Arial,sans-serif;max-width:600px">
-            <h2>${asunto}</h2>
-            <p style="white-space:pre-line">${resp.resumenAbogado}</p>
-            ${driveHtml}
-          </div>`,
-          attachments: adjuntos,
-        });
+        await sendEmailWithAttachments(ab.email, asunto, html, adjuntos);
         logger.info(`Processor: email enviado a ${ab.email}`);
       }
 

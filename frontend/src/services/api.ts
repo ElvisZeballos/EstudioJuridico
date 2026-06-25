@@ -119,6 +119,11 @@ export const usersApi = {
 
   getAbogados: () => api.get<User[]>('/users/abogados').then((r) => r.data),
 
+  getAuxiliares: () => api.get<User[]>('/users/auxiliares').then((r) => r.data),
+  getMyAuxiliares: () => api.get<User[]>('/users/mis-auxiliares').then((r) => r.data),
+  addAuxiliar: (auxiliarId: string) => api.post(`/users/mis-auxiliares/${auxiliarId}`).then((r) => r.data),
+  removeAuxiliar: (auxiliarId: string) => api.delete(`/users/mis-auxiliares/${auxiliarId}`).then((r) => r.data),
+
   invite: (data: { email: string; role?: string }) =>
     api.post<{ message: string; user: User }>('/users/invite', data).then((r) => r.data),
 

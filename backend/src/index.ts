@@ -9,17 +9,16 @@ dotenv.config();
 
 import { logger, logSystemInfo } from './config/logger';
 import { requestLogger } from './middleware/requestLogger';
-import authRoutes from './routes/auth';
-import userRoutes from './routes/users';
-import clientRoutes from './routes/clients';
-import juzgadoRoutes from './routes/juzgados';
-import casoRoutes from './routes/casos';
-import movimientoRoutes from './routes/movimientos';
-import casoNovedadesRoutes from './routes/casoNovedades';
-import novedadesRoutes from './routes/novedades';
-import googleCalendarRoutes from './routes/googleCalendar';
-import adminRoutes from './routes/admin';
-import whatsappRoutes from './routes/whatsapp';
+import authRoutes from './modules/auth/auth.routes';
+import userRoutes from './modules/users/users.routes';
+import clientRoutes from './modules/clients/clients.routes';
+import juzgadoRoutes from './modules/juzgados/juzgados.routes';
+import casoRoutes from './modules/casos/casos.routes';
+import movimientoRoutes from './modules/movimientos/movimientos.routes';
+import { casoNovedadesRouter as casoNovedadesRoutes, novedadesRouter as novedadesRoutes } from './modules/novedades/novedades.routes';
+import googleCalendarRoutes from './modules/google-calendar/googleCalendar.routes';
+import adminRoutes from './modules/admin/admin.routes';
+import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
 import { startCronJobs } from './services/cronService';
 
 const app = express();

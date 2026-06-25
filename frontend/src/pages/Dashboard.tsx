@@ -3,8 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { clientsApi, casoNovedadesApi, googleCalendarApi, adminApi, casosApi } from '../services/api';
 import { StatCard, Card } from '../components/ui/Card';
-import type { DashboardStats, CasoNovedad, AdminStats, User, Caso } from '../types';
+import type { DashboardStats, CasoNovedad, AdminStats, User, Caso, CasoEstado } from '../types';
 import { styles } from './Dashboard.styles';
+import { CASO_ESTADOS } from '../constants/caso';
 
 const IconClients = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,12 +68,8 @@ const IconX = () => (
   </svg>
 );
 
-const ESTADO_CONFIG: Record<string, { label: string; classes: string; dotClass: string }> = {
-  ACTIVO:    { label: 'Activo',    dotClass: 'bg-emerald-500', classes: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  PENDIENTE: { label: 'Pendiente', dotClass: 'bg-amber-500',   classes: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-  CONCLUIDO: { label: 'Concluido', dotClass: 'bg-blue-400',    classes: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  ARCHIVADO: { label: 'Archivado', dotClass: 'bg-gray-400',    classes: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
-};
+const ESTADO_CONFIG: Record<string, { label: string; classes: string; dotClass: string }> =
+  Object.fromEntries(CASO_ESTADOS.map((e) => [e.value, { label: e.label, classes: e.classes, dotClass: e.dotClass }]));
 
 function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
