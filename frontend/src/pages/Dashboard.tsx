@@ -106,7 +106,7 @@ function AdminDashboard({ user, stats, loading }: { user: User; stats: AdminStat
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
   const generatedAt = stats?.generatedAt
-    ? new Date(stats.generatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+    ? new Date(stats.generatedAt).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })
     : null;
   const sto = stats?.storage;
   const diskUsedGB = (sto?.diskTotalGB != null && sto?.diskAvailableGB != null)
@@ -408,7 +408,7 @@ export function Dashboard() {
             <div className={styles.bannerBadgeRow}>
               <span className={styles.bannerRoleBadge}>{roleLabel}</span>
               <span className={styles.bannerDate}>
-                {now.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                {now.toLocaleDateString('es-BO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </span>
             </div>
           </div>
@@ -502,7 +502,7 @@ export function Dashboard() {
                       {n.caso && <span className="truncate">{n.caso.titulo}</span>}
                       <span className="shrink-0">·</span>
                       <span className="shrink-0">
-                        {new Date(n.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(n.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
                     </div>
                   </div>
@@ -654,14 +654,14 @@ export function Dashboard() {
                             {fecha.getDate()}
                           </span>
                           <span className={`text-[9px] uppercase font-medium mt-0.5 ${isHoy ? 'text-rose-400' : 'text-indigo-400 dark:text-indigo-500'}`}>
-                            {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-AR', { month: 'short' })}
+                            {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-BO', { month: 'short' })}
                           </span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate leading-tight">{ev.titulo}</p>
                             <span className="shrink-0 text-sm font-semibold font-mono text-indigo-600 dark:text-indigo-400">
-                              {fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                              {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                           {ev.caso ? (
@@ -819,14 +819,14 @@ export function Dashboard() {
                               {fecha.getDate()}
                             </span>
                             <span className={`text-[9px] uppercase font-medium mt-0.5 ${isHoy ? 'text-rose-400' : 'text-indigo-400 dark:text-indigo-500'}`}>
-                              {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-AR', { month: 'short' })}
+                              {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-BO', { month: 'short' })}
                             </span>
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate leading-tight">{ev.titulo}</p>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span className="text-xs font-semibold font-mono text-indigo-600 dark:text-indigo-400">
-                                {fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                                {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                               {ev.caso && (
                                 <Link to={`/casos/${ev.casoId}`} className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-500 truncate">
@@ -867,7 +867,7 @@ export function Dashboard() {
                             {n.titulo}
                           </p>
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
-                            {new Date(n.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {new Date(n.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}
                             {n.caso && ` · ${n.caso.titulo}`}
                           </p>
                         </div>
@@ -956,7 +956,7 @@ export function Dashboard() {
               {/* Meta */}
               <div className="flex items-center gap-4 px-5 py-2 bg-gray-50 dark:bg-gray-700/50 text-xs text-gray-500 dark:text-gray-400 shrink-0">
                 <span>
-                  {new Date(previewNovedad.fecha).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {new Date(previewNovedad.fecha).toLocaleDateString('es-BO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
                 </span>
                 <span>·</span>
                 <span>{previewNovedad.autor.nombre} {previewNovedad.autor.apellido}</span>

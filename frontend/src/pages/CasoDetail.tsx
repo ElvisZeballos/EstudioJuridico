@@ -156,6 +156,12 @@ export function CasoDetail() {
     setNovedadFieldErrors({});
     setShowNovedadModal(true);
   }
+  function toLocalDatetimeInputValue(isoString: string): string {
+  const date = new Date(isoString);
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  const localDate = new Date(date.getTime() - offsetMs);
+  return localDate.toISOString().slice(0, 16);
+}
 
   function openEditNovedad(n: CasoNovedad) {
     setEditingNovedad(n);
@@ -165,7 +171,7 @@ export function CasoDetail() {
       titulo: n.titulo,
       contenido: n.contenido,
       fecha: n.fecha.slice(0, 10),
-      fechaAgendada: hasAgenda ? n.fechaAgendada!.slice(0, 16) : null,
+      fechaAgendada: hasAgenda ? toLocalDatetimeInputValue(n.fechaAgendada!) : null,
     });
     setNovedadError('');
     setNovedadFieldErrors({});
@@ -316,8 +322,8 @@ export function CasoDetail() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <DetailRow label="Fecha de inicio" value={caso.fechaInicio ? new Date(caso.fechaInicio).toLocaleDateString('es-AR') : null} />
-              <DetailRow label="Fecha de cierre" value={caso.fechaCierre ? new Date(caso.fechaCierre).toLocaleDateString('es-AR') : null} />
+              <DetailRow label="Fecha de inicio" value={caso.fechaInicio ? new Date(caso.fechaInicio).toLocaleDateString('es-BO', { timeZone: 'UTC' }) : null} />
+              <DetailRow label="Fecha de cierre" value={caso.fechaCierre ? new Date(caso.fechaCierre).toLocaleDateString('es-BO', { timeZone: 'UTC' }) : null} />
               {caso.juzgado && (
                 <DetailRow label="Juzgado" value={`${caso.juzgado.nombre}${caso.juzgado.ciudad ? ` — ${caso.juzgado.ciudad}` : ''}`} />
               )}
@@ -449,7 +455,7 @@ export function CasoDetail() {
                           {entry.campo}
                         </span>
                         <time className="text-xs text-gray-400 dark:text-gray-500">
-                          {new Date(entry.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(entry.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </time>
                         <span className="text-xs text-gray-400 dark:text-gray-500">· {entry.usuario.nombre} {entry.usuario.apellido}</span>
                       </div>
@@ -477,14 +483,14 @@ export function CasoDetail() {
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Creado: {new Date(caso.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              Creado: {new Date(caso.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </div>
             <div className="hidden sm:block w-px h-3 bg-gray-200 dark:bg-gray-700" />
             <div className="flex items-center gap-1.5">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Actualizado: {new Date(caso.updatedAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              Actualizado: {new Date(caso.updatedAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </div>
           </Card>
         </div>
@@ -527,7 +533,7 @@ export function CasoDetail() {
                             <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{n.titulo}</p>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-xs text-gray-400 dark:text-gray-500">
-                                {new Date(n.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                {new Date(n.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}
                               </span>
                               {archivos.length > 0 && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs font-medium">
@@ -542,8 +548,8 @@ export function CasoDetail() {
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                   </svg>
-                                  {new Date(n.fechaAgendada).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
-                                  {' '}{new Date(n.fechaAgendada).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                                  {new Date(n.fechaAgendada).toLocaleDateString('es-BO', { day: '2-digit', month: 'short' })}
+                                  {' '}{new Date(n.fechaAgendada).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               )}
                               {n.googleCalendarEventId && (
@@ -681,7 +687,7 @@ export function CasoDetail() {
                           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{n.titulo}</p>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                             <span className="text-xs text-gray-400 dark:text-gray-500">
-                              {new Date(n.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              {new Date(n.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}
                             </span>
                             <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
                             <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{n.autor.nombre} {n.autor.apellido}</span>
@@ -690,9 +696,9 @@ export function CasoDetail() {
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                                {new Date(n.fechaAgendada).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                                {new Date(n.fechaAgendada).toLocaleDateString('es-BO', { day: '2-digit', month: 'short' })}
                                 {' '}
-                                {new Date(n.fechaAgendada).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(n.fechaAgendada).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             )}
                           </div>

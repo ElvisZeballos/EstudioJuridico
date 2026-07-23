@@ -286,7 +286,7 @@ export function Cuenta() {
                     )}
                     <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {new Date(m.fecha).toLocaleDateString('es-BO')}
+                      {new Date(m.fecha).toLocaleDateString('es-BO', { timeZone: 'UTC' })}
                     </span>
                   </div>
                 </div>

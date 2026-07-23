@@ -242,7 +242,7 @@ export function CasoMovimientos() {
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{m.concepto}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {new Date(m.fecha).toLocaleDateString('es-AR')}
+                      {new Date(m.fecha).toLocaleDateString('es-BO', { timeZone: 'UTC' })}
                     </span>
                     {m.notas && (
                       <>

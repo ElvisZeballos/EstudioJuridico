@@ -116,7 +116,7 @@ export function CalendarioAgenda({ novedades }: Props) {
       {selectedDay && (
         <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2">
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            {new Date(selectedDay + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {new Date(selectedDay + 'T12:00:00').toLocaleDateString('es-BO', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
           {selectedEvents.length === 0 ? (
             <p className="text-xs text-gray-400 dark:text-gray-500">Sin eventos agendados</p>
@@ -149,7 +149,7 @@ function EventRow({ novedad }: { novedad: CasoNovedad }) {
     <div className="flex items-start gap-2.5 p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/40">
       <div className="shrink-0 text-center mt-0.5">
         <div className="text-xs font-bold text-indigo-700 dark:text-indigo-300 leading-none">
-          {fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+          {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
       <div className="flex-1 min-w-0">
