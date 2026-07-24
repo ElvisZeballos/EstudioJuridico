@@ -4,14 +4,14 @@ import { Prisma } from '@prisma/client';
 export const USER_SELECT = {
   id: true, email: true, role: true, nombre: true, apellido: true,
   dni: true, telefono: true, direccion: true, fechaNacimiento: true,
-  photoPath: true, active: true, createdAt: true, updatedAt: true,
+  photoPath: true, active: true, deactivatedAt: true, createdAt: true, updatedAt: true,
 } as const;
 
 export async function findAll() {
   return prisma.user.findMany({
     select: {
       id: true, email: true, role: true, nombre: true, apellido: true,
-      photoPath: true, active: true, createdAt: true, updatedAt: true,
+      photoPath: true, active: true, deactivatedAt: true, createdAt: true, updatedAt: true,
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -42,7 +42,7 @@ export async function update(id: string, data: Prisma.UserUpdateInput) {
 }
 
 export async function deactivate(id: string) {
-  return prisma.user.update({ where: { id }, data: { active: false } });
+  return prisma.user.update({ where: { id }, data: { active: false, deactivatedAt: new Date() } });
 }
 
 export async function findAllAbogados() {

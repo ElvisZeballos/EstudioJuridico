@@ -226,7 +226,7 @@ export async function deletePhoto(id: string, requesterId: string, actorLog: obj
 
 export async function sendPasswordReset(id: string, actorLog: object) {
   const user = await usersRepository.findById(id);
-  if (!user || !user.active) return { error: 'Usuario no encontrado', status: 404 as const };
+  if (!user || !user.active) return { error: 'No se puede enviar un restablecimiento a un usuario eliminado. Reactívalo primero.', status: 404 as const };
 
   await usersRepository.invalidatePendingResetTokens(id);
 

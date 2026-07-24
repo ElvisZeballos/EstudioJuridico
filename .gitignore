@@ -14,3 +14,4 @@ dist/
 # Uploads
 uploads/*
 !uploads/.gitkeep
+backup_*.sql

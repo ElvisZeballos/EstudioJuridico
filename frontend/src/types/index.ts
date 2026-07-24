@@ -12,6 +12,7 @@ export interface User {
   fechaNacimiento?: string | null;
   photoPath?: string | null;
   active: boolean;
+  deactivatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

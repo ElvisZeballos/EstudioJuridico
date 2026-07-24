@@ -141,14 +141,18 @@ export function Users() {
   }
 
   async function handleSendReset(userId: string) {
-    try {
-      await usersApi.sendPasswordReset(userId);
-      setResetSent(userId);
-      setTimeout(() => setResetSent(null), 3000);
-    } catch {
-      // silent
+  try {
+    await usersApi.sendPasswordReset(userId);
+    setResetSent(userId);
+    setTimeout(() => setResetSent(null), 3000);
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      alert(err.response?.data?.error || 'No se pudo enviar el correo de restablecimiento.');
+    } else {
+      alert('Error de conexión al enviar el correo de restablecimiento.');
     }
   }
+}
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -242,8 +246,14 @@ export function Users() {
                   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_BADGE_CLASS[u.role]}`}>
                     {u.role}
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'}`}>
-                    {u.active ? 'Activo' : 'Invitado'}
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    u.active
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                    : u.deactivatedAt
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                    : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                    }`}>
+                    {u.active ? 'Activo' : u.deactivatedAt ? 'Eliminado' : 'Invitado'}
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{u.email}</p>
