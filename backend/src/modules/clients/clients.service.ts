@@ -7,6 +7,36 @@ import * as clientsRepository from './clients.repository';
 
 type ClientRaw = Awaited<ReturnType<typeof clientsRepository.findById>>;
 
+function calcularEdad(fechaNacimiento: string): number {
+  const nacimiento = new Date(fechaNacimiento);
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mesActual = hoy.getMonth() - nacimiento.getMonth();
+  if (mesActual < 0 || (mesActual === 0 && hoy.getDate() < nacimiento.getDate())) {
+    edad--;
+  }
+  return edad;
+}
+
+function validarFechaNacimientoCliente(fechaNacimiento: string): string | null {
+  const nacimiento = new Date(fechaNacimiento);
+  if (isNaN(nacimiento.getTime())) {
+    return 'Fecha de nacimiento inválida';
+  }
+
+  const hoy = new Date();
+  if (nacimiento > hoy) {
+    return 'La fecha de nacimiento no puede ser una fecha futura';
+  }
+
+  const edad = calcularEdad(fechaNacimiento);
+  if (edad < 18) {
+    return 'No se pueden registrar datos de personas menores de 18 años como cliente. Por favor, ingrese los datos del padre, madre o apoderado legal.';
+  }
+
+  return null;
+}
+
 export function decryptClient(client: NonNullable<ClientRaw>) {
   return {
     id: client.id,
@@ -83,6 +113,11 @@ export async function create(
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return { error: 'El email ya está registrado', status: 409 as const };
 
+  if (fechaNacimiento) {
+    const errorEdad = validarFechaNacimientoCliente(fechaNacimiento);
+    if (errorEdad) return { error: errorEdad, status: 400 as const };
+  }
+
   const refs = Array.isArray(referencias)
     ? referencias.filter((r) => r.nombre && r.relacion && r.telefono)
     : [];
@@ -133,7 +168,13 @@ export async function update(
   if (dni !== undefined) userUpdate.dni = encryptIfDefined(dni as string);
   if (telefono !== undefined) userUpdate.telefono = encryptIfDefined(telefono as string);
   if (direccion !== undefined) userUpdate.direccion = encryptIfDefined(direccion as string);
-  if (fechaNacimiento !== undefined) userUpdate.fechaNacimiento = encryptIfDefined(fechaNacimiento as string);
+  if (fechaNacimiento !== undefined) {
+  if (fechaNacimiento) {
+    const errorEdad = validarFechaNacimientoCliente(fechaNacimiento as string);
+    if (errorEdad) return { error: errorEdad, status: 400 as const };
+  }
+  userUpdate.fechaNacimiento = encryptIfDefined(fechaNacimiento as string);
+}
 
   const clientUpdate: Record<string, unknown> = {};
   if (notas !== undefined) clientUpdate.notas = encryptIfDefined(notas as string);

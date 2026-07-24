@@ -21,7 +21,16 @@ const emptyForm: ClientFormData = {
   abogadoId: '',
   referencias: [],
 };
-
+function calcularEdad(fechaNacimiento: string): number {
+  const nacimiento = new Date(fechaNacimiento);
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mesActual = hoy.getMonth() - nacimiento.getMonth();
+  if (mesActual < 0 || (mesActual === 0 && hoy.getDate() < nacimiento.getDate())) {
+    edad--;
+  }
+  return edad;
+}
 export function Clients() {
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
@@ -129,10 +138,16 @@ export function Clients() {
     setFormError('');
 
     const errs: Record<string, string> = {};
-    if (!form.nombre.trim())   errs.nombre   = 'El nombre es requerido.';
-    if (!form.apellido.trim()) errs.apellido = 'El apellido es requerido.';
-    if (!form.dni.trim())      errs.dni      = 'La CI es requerida.';
-    if (!form.email.trim())    errs.email    = 'El email es requerido.';
+    if (!form.nombre.trim())   errs.nombre    = 'El nombre es requerido.';
+    if (!form.apellido.trim()) errs.apellido  = 'El apellido es requerido.';
+    if (!form.dni.trim())      errs.dni       = 'La CI es requerida.';
+    if (!form.email.trim())    errs.email     = 'El email es requerido.';
+    if (form.fechaNacimiento) {
+      const edad = calcularEdad(form.fechaNacimiento);
+      if (edad < 18) {
+        errs.fechaNacimiento = 'No se pueden registrar datos de personas menores de 18 años como cliente. Ingrese los datos del padre, madre o apoderado legal.';
+      }
+    }
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
     setFieldErrors({});
 
@@ -387,6 +402,9 @@ export function Clients() {
               type="date"
               value={form.fechaNacimiento}
               onChange={(e) => setForm((p) => ({ ...p, fechaNacimiento: e.target.value }))}
+              min="1900-01-01"
+              max={new Date().toISOString().slice(0, 10)}
+              error={fieldErrors.fechaNacimiento}
             />
             <Input
               label="Dirección"
