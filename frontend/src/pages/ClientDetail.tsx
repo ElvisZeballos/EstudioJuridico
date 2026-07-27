@@ -304,6 +304,10 @@ export function ClientDetail() {
           <DetailRow label="Email" value={client.email} />
           <DetailRow label="Teléfono" value={client.telefono} />
           <DetailRow label="Fecha de nacimiento" value={client.fechaNacimiento} />
+          <DetailRow
+            label="Edad"
+            value={client.fechaNacimiento ? `${calcularEdad(client.fechaNacimiento)} años` : undefined}
+          />
           <DetailRow label="Dirección" value={client.direccion} />
           <DetailRow
             label="Abogado asignado"

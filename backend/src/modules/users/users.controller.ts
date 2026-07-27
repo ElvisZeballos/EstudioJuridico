@@ -19,7 +19,7 @@ export async function getUserById(req: AuthRequest, res: Response): Promise<void
   try {
     const result = await usersService.getById(req.params.id, req.user!.id);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     logger.info('USUARIOS: perfil consultado', { ...actor(req), targetUserId: req.params.id });
@@ -44,7 +44,7 @@ export async function createUser(req: AuthRequest, res: Response): Promise<void>
   try {
     const result = await usersService.create(req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.status(201).json(result.user);
@@ -58,7 +58,7 @@ export async function updateUser(req: AuthRequest, res: Response): Promise<void>
   try {
     const result = await usersService.update(req.params.id, req.user!.id, req.user!.role, req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.user);
@@ -73,7 +73,7 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     const { currentPassword, newPassword } = req.body;
     const result = await usersService.changePassword(req.params.id, req.user!.id, currentPassword, newPassword);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     logger.info('USUARIOS: contraseña cambiada', { ...actor(req), targetUserId: req.params.id });
@@ -88,7 +88,7 @@ export async function deleteUser(req: AuthRequest, res: Response): Promise<void>
   try {
     const result = await usersService.deactivate(req.params.id, req.user!.id, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json({ message: 'User deactivated successfully' });
@@ -106,7 +106,7 @@ export async function uploadUserPhoto(req: AuthRequest, res: Response): Promise<
     }
     const result = await usersService.uploadPhoto(req.params.id, req.user!.id, req.file.filename, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.user);
@@ -120,7 +120,7 @@ export async function deleteUserPhoto(req: AuthRequest, res: Response): Promise<
   try {
     const result = await usersService.deletePhoto(req.params.id, req.user!.id, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.user);
@@ -134,7 +134,7 @@ export async function sendPasswordReset(req: AuthRequest, res: Response): Promis
   try {
     const result = await usersService.sendPasswordReset(req.params.id, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json({ message: 'Correo de restablecimiento enviado.' });
@@ -165,7 +165,7 @@ export async function getMyAuxiliares(req: AuthRequest, res: Response): Promise<
 export async function addAuxiliar(req: AuthRequest, res: Response): Promise<void> {
   try {
     const result = await usersService.addAuxiliar(req.user!.id, req.params.auxiliarId);
-    if ('error' in result) { res.status(result.status).json({ error: result.error }); return; }
+    if ('error' in result) { res.status(result.status ?? 500).json({ error: result.error }); return; }
     res.json({ message: 'Auxiliar asignado' });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -186,7 +186,7 @@ export async function inviteUser(req: AuthRequest, res: Response): Promise<void>
     const { email, role } = req.body;
     const result = await usersService.inviteUser(email, role, req.user!.role, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.status(201).json({ message: 'Invitación enviada correctamente', user: result.user });

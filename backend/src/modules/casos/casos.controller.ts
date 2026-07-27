@@ -19,7 +19,7 @@ export async function getCasoById(req: AuthRequest, res: Response): Promise<void
   try {
     const result = await casosService.getById(req.params.id, req.user!.id, req.user!.role);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     logger.info('CASOS: consultado', { ...actor(req), casoId: req.params.id });
@@ -34,7 +34,7 @@ export async function getCasoHistorial(req: AuthRequest, res: Response): Promise
   try {
     const result = await casosService.getHistorial(req.params.id, req.user!.id, req.user!.role);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.historial);
@@ -48,7 +48,7 @@ export async function createCaso(req: AuthRequest, res: Response): Promise<void>
   try {
     const result = await casosService.create(req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.status(201).json(result.caso);
@@ -62,7 +62,7 @@ export async function updateCaso(req: AuthRequest, res: Response): Promise<void>
   try {
     const result = await casosService.update(req.params.id, req.user!.id, req.user!.role, req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.caso);
@@ -76,7 +76,7 @@ export async function deleteCaso(req: AuthRequest, res: Response): Promise<void>
   try {
     const result = await casosService.deactivate(req.params.id, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json({ message: 'Caso eliminado correctamente' });

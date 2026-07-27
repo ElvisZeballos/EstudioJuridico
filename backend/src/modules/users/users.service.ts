@@ -6,6 +6,8 @@ import { logger } from '../../config/logger';
 import { sendEmail } from '../../infrastructure/email';
 import * as usersRepository from './users.repository';
 
+type ServiceError = { error: string; status: number };
+
 export function decryptUser(user: {
   id: string; email: string; role: string; nombre: string; apellido: string;
   dni: string | null; telefono: string | null; direccion: string | null;
@@ -206,7 +208,7 @@ export async function uploadPhoto(id: string, requesterId: string, filename: str
   return { user: decryptUser(updated) };
 }
 
-export async function deletePhoto(id: string, requesterId: string, actorLog: object) {
+export async function deletePhoto(id: string, requesterId: string, actorLog: object): Promise<ServiceError | { user: ReturnType<typeof decryptUser> }> {
   if (requesterId !== id) return { error: 'Access denied', status: 403 as const };
 
   const existing = await usersRepository.findById(id);
@@ -224,7 +226,7 @@ export async function deletePhoto(id: string, requesterId: string, actorLog: obj
   return { user: decryptUser(updated) };
 }
 
-export async function sendPasswordReset(id: string, actorLog: object) {
+export async function sendPasswordReset(id: string, actorLog: object): Promise<ServiceError | Record<string, never>> {
   const user = await usersRepository.findById(id);
   if (!user || !user.active) return { error: 'No se puede enviar un restablecimiento a un usuario eliminado. Reactívalo primero.', status: 404 as const };
 
@@ -267,7 +269,7 @@ export async function getMyAuxiliares(abogadoId: string) {
   return usersRepository.getAuxiliaresByAbogado(abogadoId);
 }
 
-export async function addAuxiliar(abogadoId: string, auxiliarId: string) {
+export async function addAuxiliar(abogadoId: string, auxiliarId: string): Promise<ServiceError | Record<string, never>> {
   const auxiliar = await usersRepository.findById(auxiliarId);
   if (!auxiliar || auxiliar.role !== 'AUXILIAR') {
     return { error: 'Usuario no encontrado o no es auxiliar', status: 400 as const };
@@ -286,7 +288,7 @@ export async function inviteUser(
   role: string | undefined,
   actorRole: string,
   actorLog: object
-) {
+): Promise<ServiceError | { user: ReturnType<typeof decryptUser> }> {
   if (!email) return { error: 'El email es requerido', status: 400 as const };
 
   const assignedRole = actorRole === 'ABOGADO' ? 'CLIENTE' : (role || 'CLIENTE');

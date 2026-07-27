@@ -66,6 +66,38 @@ async function main() {
   });
   console.log('Abogado created:', abogado.email);
 
+  const auxiliarPassword = await bcrypt.hash('Auxiliar123!', 12);
+  const auxiliar = await prisma.user.upsert({
+    where: { email: 'juanito@ejemplo.com' },
+    update: {},
+    create: {
+      email: 'juanito@ejemplo.com',
+      password: auxiliarPassword,
+      nombre: 'Juanito',
+      apellido: 'Pérez',
+      role: 'AUXILIAR',
+      dni: encrypt('8945123 LP'),
+      telefono: encrypt('+591 70123456'),
+      active: true,
+    },
+  });
+  console.log('Auxiliar created:', auxiliar.email);
+
+  await prisma.abogadoAuxiliar.upsert({
+    where: {
+      abogadoId_auxiliarId: {
+        abogadoId: abogado.id,
+        auxiliarId: auxiliar.id,
+      },
+    },
+    update: {},
+    create: {
+      abogadoId: abogado.id,
+      auxiliarId: auxiliar.id,
+    },
+  });
+  console.log('Auxiliar asignado al abogado:', abogado.email);
+
   const clientePassword = await bcrypt.hash('Cliente123!', 12);
   const clienteUser = await prisma.user.upsert({
     where: { email: 'cliente@ejemplo.com' },
@@ -148,6 +180,7 @@ async function main() {
   console.log('  Admin:   admin@estudiojuridico.com / Admin123!');
   console.log('  Abogado: abogado@estudiojuridico.com / Abogado123!');
   console.log('  Cliente: cliente@ejemplo.com / Cliente123!');
+  console.log('  Auxiliar: juanito@ejemplo.com / Auxiliar123!');
 }
 
 main()

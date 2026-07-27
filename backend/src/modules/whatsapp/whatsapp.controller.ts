@@ -50,7 +50,7 @@ export async function testGroq(req: AuthRequest, res: Response): Promise<void> {
   try {
     const result = await whatsappService.testGroq(folder);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result);

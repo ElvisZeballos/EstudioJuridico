@@ -19,7 +19,7 @@ export async function getMovimientosByCaso(req: AuthRequest, res: Response): Pro
   try {
     const result = await movimientosService.getByCaso(req.params.casoId, req.user!.id, req.user!.role);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     logger.info('MOVIMIENTOS: listado por caso', { ...actor(req), casoId: req.params.casoId, total: result.movimientos.length });
@@ -44,7 +44,7 @@ export async function getStatsByCaso(req: AuthRequest, res: Response): Promise<v
   try {
     const result = await movimientosService.getStatsByCaso(req.params.casoId, req.user!.id, req.user!.role);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result);
@@ -58,7 +58,7 @@ export async function createMovimiento(req: AuthRequest, res: Response): Promise
   try {
     const result = await movimientosService.create(req.body, req.user!.id, req.user!.role, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.status(201).json(result.movimiento);
@@ -72,7 +72,7 @@ export async function updateMovimiento(req: AuthRequest, res: Response): Promise
   try {
     const result = await movimientosService.update(req.params.id, req.user!.id, req.user!.role, req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.movimiento);
@@ -86,7 +86,7 @@ export async function deleteMovimiento(req: AuthRequest, res: Response): Promise
   try {
     const result = await movimientosService.deactivate(req.params.id, req.user!.id, req.user!.role, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json({ message: 'Movimiento eliminado correctamente' });

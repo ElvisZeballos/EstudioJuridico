@@ -1,4 +1,5 @@
 import prisma from '../../shared/prisma';
+import { Prisma } from '@prisma/client';
 
 export const CASO_INCLUDE = {
   abogados: {
@@ -42,7 +43,7 @@ export async function findClientByUserId(userId: string) {
   return prisma.client.findFirst({ where: { userId } });
 }
 
-export async function create(data: Record<string, unknown>) {
+export async function create(data: Prisma.CasoUncheckedCreateInput) {
   return prisma.caso.create({ data, include: CASO_INCLUDE });
 }
 

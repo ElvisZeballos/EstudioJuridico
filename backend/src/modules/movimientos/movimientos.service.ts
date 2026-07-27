@@ -1,3 +1,4 @@
+import { TipoMovimiento } from '@prisma/client';
 import { logger } from '../../config/logger';
 import * as movimientosRepository from './movimientos.repository';
 
@@ -81,7 +82,7 @@ export async function create(
   const movimiento = await movimientosRepository.create({
     casoId: casoId || null,
     abogadoId,
-    tipo,
+    tipo: tipo as TipoMovimiento,
     concepto,
     monto: parseFloat(String(monto)),
     fecha: new Date(fecha),

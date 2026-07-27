@@ -1,4 +1,5 @@
 import prisma from '../../shared/prisma';
+import { TipoMovimiento } from '@prisma/client';
 
 export const MOVIMIENTO_INCLUDE = {
   caso: { select: { id: true, titulo: true, numero: true } },
@@ -34,7 +35,7 @@ export async function aggregateStats(where: Record<string, unknown>) {
 }
 
 export async function create(data: {
-  casoId?: string | null; abogadoId: string; tipo: string;
+  casoId?: string | null; abogadoId: string; tipo: TipoMovimiento;
   concepto: string; monto: number; fecha: Date; notas?: string | null;
 }) {
   return prisma.movimiento.create({ data, include: MOVIMIENTO_INCLUDE });

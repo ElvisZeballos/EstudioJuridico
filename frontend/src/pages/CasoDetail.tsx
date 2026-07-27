@@ -791,11 +791,12 @@ export function CasoDetail() {
             error={novedadFieldErrors.titulo}
           />
           <Input
-            label="Fecha *"
+            label="Fecha del hecho *"
             type="date"
             value={novedadForm.fecha}
             onChange={(e) => setNovedadForm({ ...novedadForm, fecha: e.target.value })}
             error={novedadFieldErrors.fecha}
+            hint="Esta fecha determina el orden de la lista de Novedades."
           />
           <Textarea
             label="Detalle *"

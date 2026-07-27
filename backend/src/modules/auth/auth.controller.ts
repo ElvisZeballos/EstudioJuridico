@@ -16,7 +16,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   try {
     const result = await authService.login(email, password, ip);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result);
@@ -30,7 +30,7 @@ export async function refreshToken(req: AuthRequest, res: Response): Promise<voi
   try {
     const result = await authService.refreshToken(req.user!.id);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result);
@@ -44,7 +44,7 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
   try {
     const result = await authService.getMe(req.user!.id);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.user);
@@ -84,7 +84,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   try {
     const result = await authService.resetPassword(token, password, ip);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json({ message: 'Contraseña actualizada correctamente' });

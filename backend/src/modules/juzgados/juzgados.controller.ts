@@ -19,7 +19,7 @@ export async function getJuzgadoById(req: AuthRequest, res: Response): Promise<v
   try {
     const result = await juzgadosService.getById(req.params.id, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     logger.info('JUZGADOS: consultado', { ...actor(req), juzgadoId: req.params.id });
@@ -34,7 +34,7 @@ export async function createJuzgado(req: AuthRequest, res: Response): Promise<vo
   try {
     const result = await juzgadosService.create(req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.status(201).json(result.juzgado);
@@ -48,7 +48,7 @@ export async function updateJuzgado(req: AuthRequest, res: Response): Promise<vo
   try {
     const result = await juzgadosService.update(req.params.id, req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.juzgado);
@@ -62,7 +62,7 @@ export async function deleteJuzgado(req: AuthRequest, res: Response): Promise<vo
   try {
     const result = await juzgadosService.deactivate(req.params.id, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json({ message: 'Juzgado eliminado correctamente' });

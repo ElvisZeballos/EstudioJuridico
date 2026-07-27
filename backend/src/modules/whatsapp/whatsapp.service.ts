@@ -70,7 +70,9 @@ export async function triggerExtraction(userId: string) {
   return { message: 'Extracción iniciada. Los resultados se guardarán en la carpeta temp del servidor.' };
 }
 
-export async function testGroq(folder: string) {
+type ServiceError = { error: string; status: number };
+
+export async function testGroq(folder: string): Promise<ServiceError | { message: string; userDir: string }> {
   const tempBase = path.resolve(process.cwd(), 'temp');
   const userDir = path.resolve(tempBase, folder);
   if (!userDir.startsWith(tempBase + path.sep)) {

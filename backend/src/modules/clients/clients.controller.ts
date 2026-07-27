@@ -19,7 +19,7 @@ export async function getClientById(req: AuthRequest, res: Response): Promise<vo
   try {
     const result = await clientsService.getById(req.params.id, req.user!.id, req.user!.role);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     logger.info('CLIENTES: perfil consultado', { ...actor(req), targetClientId: req.params.id });
@@ -34,7 +34,7 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
   try {
     const result = await clientsService.create(req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.status(201).json(result.client);
@@ -48,7 +48,7 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
   try {
     const result = await clientsService.update(req.params.id, req.user!.role, req.user!.role, req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.client);
@@ -62,7 +62,7 @@ export async function deleteClient(req: AuthRequest, res: Response): Promise<voi
   try {
     const result = await clientsService.deactivate(req.params.id, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json({ message: 'Client deactivated successfully' });

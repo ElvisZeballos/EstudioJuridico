@@ -30,7 +30,7 @@ export async function getNovedadesByCaso(req: AuthRequest, res: Response): Promi
   try {
     const result = await novedadesService.getByCaso(req.params.casoId, req.user!.id, req.user!.role);
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     logger.info('NOVEDADES: listado consultado', { ...actor(req), casoId: req.params.casoId, total: result.novedades.length });
@@ -45,7 +45,7 @@ export async function createNovedad(req: AuthRequest, res: Response): Promise<vo
   try {
     const result = await novedadesService.create(req.params.casoId, req.user!.id, req.user!.role, req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.status(201).json(result.novedad);
@@ -59,7 +59,7 @@ export async function updateNovedad(req: AuthRequest, res: Response): Promise<vo
   try {
     const result = await novedadesService.update(req.params.id, req.user!.id, req.user!.role, req.body, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json(result.novedad);
@@ -73,7 +73,7 @@ export async function deleteNovedad(req: AuthRequest, res: Response): Promise<vo
   try {
     const result = await novedadesService.deactivate(req.params.id, req.user!.id, req.user!.role, actor(req));
     if ('error' in result) {
-      res.status(result.status).json({ error: result.error });
+      res.status(result.status ?? 500).json({ error: result.error });
       return;
     }
     res.json({ message: 'Novedad eliminada correctamente' });

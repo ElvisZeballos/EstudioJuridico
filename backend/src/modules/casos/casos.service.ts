@@ -1,3 +1,4 @@
+import { CasoEstado } from '@prisma/client';
 import { logger } from '../../config/logger';
 import * as casosRepository from './casos.repository';
 
@@ -105,7 +106,7 @@ export async function create(
   const caso = await casosRepository.create({
     titulo,
     descripcion: descripcion || null,
-    estado: estado || 'ACTIVO',
+    estado: (estado || 'ACTIVO') as CasoEstado,
     numero: numero || null,
     fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
     fechaCierre: fechaCierre ? new Date(fechaCierre) : null,
