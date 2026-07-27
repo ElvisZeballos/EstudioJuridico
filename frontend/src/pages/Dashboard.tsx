@@ -80,6 +80,18 @@ function formatUptime(seconds: number): string {
   return `${m}m`;
 }
 
+const BOLIVIA_TZ = 'America/La_Paz';
+
+/** Hora actual (0-23) según la zona horaria de Bolivia, sin depender del huso del navegador. */
+function currentHourInBolivia(): number {
+  return Number(new Date().toLocaleString('en-US', { timeZone: BOLIVIA_TZ, hour: '2-digit', hour12: false }));
+}
+
+/** Clave "AAAA-MM-DD" de una fecha según el día que es en Bolivia — para comparar "es hoy" sin depender del huso del navegador. */
+function boliviaDateKey(date: Date): string {
+  return date.toLocaleDateString('en-CA', { timeZone: BOLIVIA_TZ });
+}
+
 function StatusDot({ ok }: { ok: boolean }) {
   return (
     <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -102,11 +114,10 @@ function MiniBar({ used, total, color }: { used: number; total: number; color: s
 }
 
 function AdminDashboard({ user, stats, loading }: { user: User; stats: AdminStats | null; loading: boolean }) {
-  const now = new Date();
-  const hour = now.getHours();
+  const hour = currentHourInBolivia();
   const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
   const generatedAt = stats?.generatedAt
-    ? new Date(stats.generatedAt).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })
+    ? new Date(stats.generatedAt).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })
     : null;
   const sto = stats?.storage;
   const diskUsedGB = (sto?.diskTotalGB != null && sto?.diskAvailableGB != null)
@@ -375,7 +386,7 @@ export function Dashboard() {
   }
 
   const now = new Date();
-  const hour = now.getHours();
+  const hour = currentHourInBolivia();
   const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
   const roleLabelMap: Record<string, string> = {
     ADMIN: 'Administrador', ABOGADO: 'Abogado', CLIENTE: 'Cliente', AUXILIAR: 'Auxiliar',
@@ -408,7 +419,7 @@ export function Dashboard() {
             <div className={styles.bannerBadgeRow}>
               <span className={styles.bannerRoleBadge}>{roleLabel}</span>
               <span className={styles.bannerDate}>
-                {now.toLocaleDateString('es-BO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                {now.toLocaleDateString('es-BO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: BOLIVIA_TZ })}
               </span>
             </div>
           </div>
@@ -502,7 +513,7 @@ export function Dashboard() {
                       {n.caso && <span className="truncate">{n.caso.titulo}</span>}
                       <span className="shrink-0">·</span>
                       <span className="shrink-0">
-                        {new Date(n.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(n.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: BOLIVIA_TZ })}
                       </span>
                     </div>
                   </div>
@@ -643,10 +654,10 @@ export function Dashboard() {
                 <div className="space-y-3">
                   {proximosEventos.map(ev => {
                     const fecha = new Date(ev.fechaAgendada!);
-                    const isHoy = fecha.toDateString() === now.toDateString();
+                    const isHoy = boliviaDateKey(fecha) === boliviaDateKey(now);
                     const manana = new Date(now);
                     manana.setDate(manana.getDate() + 1);
-                    const esManana = fecha.toDateString() === manana.toDateString();
+                    const esManana = boliviaDateKey(fecha) === boliviaDateKey(manana);
                     return (
                       <div key={ev.id} className="flex gap-3">
                         <div className={`shrink-0 w-10 h-10 rounded-xl flex flex-col items-center justify-center ${isHoy ? 'bg-rose-100 dark:bg-rose-900/30' : 'bg-indigo-50 dark:bg-indigo-900/30'}`}>
@@ -654,14 +665,14 @@ export function Dashboard() {
                             {fecha.getDate()}
                           </span>
                           <span className={`text-[9px] uppercase font-medium mt-0.5 ${isHoy ? 'text-rose-400' : 'text-indigo-400 dark:text-indigo-500'}`}>
-                            {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-BO', { month: 'short' })}
+                            {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-BO', { month: 'short', timeZone: BOLIVIA_TZ })}
                           </span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate leading-tight">{ev.titulo}</p>
                             <span className="shrink-0 text-sm font-semibold font-mono text-indigo-600 dark:text-indigo-400">
-                              {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
+                              {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
                             </span>
                           </div>
                           {ev.caso ? (
@@ -808,10 +819,10 @@ export function Dashboard() {
                   <div className="space-y-3">
                     {proximosEventos.slice(0, 4).map(ev => {
                       const fecha = new Date(ev.fechaAgendada!);
-                      const isHoy = fecha.toDateString() === now.toDateString();
+                      const isHoy = boliviaDateKey(fecha) === boliviaDateKey(now);
                       const manana = new Date(now);
                       manana.setDate(manana.getDate() + 1);
-                      const esManana = fecha.toDateString() === manana.toDateString();
+                      const esManana = boliviaDateKey(fecha) === boliviaDateKey(manana);
                       return (
                         <div key={ev.id} className="flex gap-3">
                           <div className={`shrink-0 w-10 h-10 rounded-xl flex flex-col items-center justify-center ${isHoy ? 'bg-rose-100 dark:bg-rose-900/30' : 'bg-indigo-50 dark:bg-indigo-900/30'}`}>
@@ -819,14 +830,14 @@ export function Dashboard() {
                               {fecha.getDate()}
                             </span>
                             <span className={`text-[9px] uppercase font-medium mt-0.5 ${isHoy ? 'text-rose-400' : 'text-indigo-400 dark:text-indigo-500'}`}>
-                              {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-BO', { month: 'short' })}
+                              {isHoy ? 'Hoy' : esManana ? 'Mañ' : fecha.toLocaleDateString('es-BO', { month: 'short', timeZone: BOLIVIA_TZ })}
                             </span>
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate leading-tight">{ev.titulo}</p>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span className="text-xs font-semibold font-mono text-indigo-600 dark:text-indigo-400">
-                                {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
+                                {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
                               </span>
                               {ev.caso && (
                                 <Link to={`/casos/${ev.casoId}`} className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-500 truncate">

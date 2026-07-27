@@ -10,12 +10,20 @@ import { formatMoney } from '../utils/format';
 import type { Movimiento, MovimientoFormData, MovimientoStats, Caso, TipoMovimiento } from '../types';
 import axios from 'axios';
 
+
+const BOLIVIA_TZ = 'America/La_Paz';
+
+/** Clave "AAAA-MM-DD" del día actual en Bolivia, sin depender del huso del navegador ni de UTC. */
+function todayInBolivia(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: BOLIVIA_TZ });
+}
+
 const emptyForm: MovimientoFormData = {
   casoId: '',
   tipo: 'INGRESO',
   concepto: '',
   monto: '',
-  fecha: new Date().toISOString().slice(0, 10),
+  fecha: todayInBolivia(),
   notas: '',
 };
 

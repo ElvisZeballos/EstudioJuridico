@@ -11,7 +11,14 @@ import { ESTADO_COLORS, ESTADO_LABELS, CASO_ESTADOS } from '../constants/caso';
 import { toggleId } from '../utils/format';
 import type { Caso, CasoEstado, CasoFormData, CasoHistorialEntry, CasoNovedad, CasoNovedadFormData, DriveArchivo, User, Client, Juzgado } from '../types';
 
+
 const ESTADO_OPTIONS = CASO_ESTADOS.map((e) => ({ value: e.value, label: e.label }));
+const BOLIVIA_TZ = 'America/La_Paz';
+
+/** Clave "AAAA-MM-DD" del día actual en Bolivia, sin depender del huso del navegador. */
+function todayInBolivia(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: BOLIVIA_TZ });
+}
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
@@ -35,7 +42,7 @@ export function CasoDetail() {
   const [error, setError] = useState('');
 
   // Novedades state
-  const emptyNovedad: CasoNovedadFormData = { titulo: '', contenido: '', fecha: new Date().toISOString().slice(0, 10), fechaAgendada: null };
+  const emptyNovedad: CasoNovedadFormData = { titulo: '', contenido: '', fecha: todayInBolivia(), fechaAgendada: null };
   const [showNovedadModal, setShowNovedadModal] = useState(false);
   const [editingNovedad, setEditingNovedad] = useState<CasoNovedad | null>(null);
   const [novedadForm, setNovedadForm] = useState<CasoNovedadFormData>(emptyNovedad);
@@ -158,9 +165,13 @@ export function CasoDetail() {
   }
   function toLocalDatetimeInputValue(isoString: string): string {
   const date = new Date(isoString);
-  const offsetMs = date.getTimezoneOffset() * 60000;
-  const localDate = new Date(date.getTime() - offsetMs);
-  return localDate.toISOString().slice(0, 16);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BOLIVIA_TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
 }
 
   function openEditNovedad(n: CasoNovedad) {
@@ -455,7 +466,7 @@ export function CasoDetail() {
                           {entry.campo}
                         </span>
                         <time className="text-xs text-gray-400 dark:text-gray-500">
-                          {new Date(entry.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(entry.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
                         </time>
                         <span className="text-xs text-gray-400 dark:text-gray-500">· {entry.usuario.nombre} {entry.usuario.apellido}</span>
                       </div>
@@ -483,14 +494,14 @@ export function CasoDetail() {
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Creado: {new Date(caso.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              Creado: {new Date(caso.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
             </div>
             <div className="hidden sm:block w-px h-3 bg-gray-200 dark:bg-gray-700" />
             <div className="flex items-center gap-1.5">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Actualizado: {new Date(caso.updatedAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              Actualizado: {new Date(caso.updatedAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
             </div>
           </Card>
         </div>
@@ -548,8 +559,8 @@ export function CasoDetail() {
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                   </svg>
-                                  {new Date(n.fechaAgendada).toLocaleDateString('es-BO', { day: '2-digit', month: 'short' })}
-                                  {' '}{new Date(n.fechaAgendada).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
+                                  {new Date(n.fechaAgendada).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', timeZone: BOLIVIA_TZ })}
+                                  {' '}{new Date(n.fechaAgendada).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
                                 </span>
                               )}
                               {n.googleCalendarEventId && (
@@ -696,9 +707,9 @@ export function CasoDetail() {
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                                {new Date(n.fechaAgendada).toLocaleDateString('es-BO', { day: '2-digit', month: 'short' })}
+                                {new Date(n.fechaAgendada).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', timeZone: BOLIVIA_TZ })}
                                 {' '}
-                                {new Date(n.fechaAgendada).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(n.fechaAgendada).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
                               </span>
                             )}
                           </div>

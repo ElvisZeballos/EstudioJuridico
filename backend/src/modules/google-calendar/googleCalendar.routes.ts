@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { authenticateToken, AuthRequest } from '../../middleware/auth';
 import { getAuthUrl, getTokensFromCode } from '../../infrastructure/googleCalendar';
 import { logger } from '../../config/logger';
@@ -14,10 +15,19 @@ router.get('/connect', authenticateToken, (req: AuthRequest, res: Response) => {
 });
 
 router.get('/callback', async (req, res) => {
-  const { code, state: userId } = req.query as { code: string; state: string };
+  const { code, state } = req.query as { code: string; state: string };
 
-  if (!code || !userId) {
+  if (!code || !state) {
     return res.redirect(`${FRONTEND_URL}/dashboard?googleError=missing_params`);
+  }
+
+  let userId: string;
+  try {
+    const payload = jwt.verify(state, process.env.JWT_SECRET!) as { userId: string };
+    userId = payload.userId;
+  } catch (err) {
+    logger.error('GOOGLE_CALENDAR: state inválido o expirado', { error: (err as Error).message });
+    return res.redirect(`${FRONTEND_URL}/dashboard?googleError=invalid_state`);
   }
 
   try {

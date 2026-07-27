@@ -2,6 +2,15 @@ import { logger } from '../../config/logger';
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '../../infrastructure/googleCalendar';
 import * as novedadesRepository from './novedades.repository';
 
+/**
+ * Convierte un string "AAAA-MM-DDTHH:mm" (sin zona horaria, del input datetime-local)
+ * a un Date real, anclado siempre a Bolivia (UTC-4 fijo, sin horario de verano) —
+ * sin depender de la zona horaria configurada en el servidor.
+ */
+function parseBoliviaDatetime(naive: string): Date {
+  return new Date(`${naive}:00-04:00`);
+}
+
 async function buildCasoFilter(userId: string, role: string): Promise<object | null> {
   if (role === 'ADMIN') return {};
   if (role === 'ABOGADO') return { abogados: { some: { abogadoId: userId } } };
@@ -88,7 +97,7 @@ export async function create(
   const novedad = await novedadesRepository.create({
     casoId, autorId: userId, titulo, contenido,
     fecha: new Date(fecha),
-    fechaAgendada: fechaAgendada ? new Date(fechaAgendada) : null,
+    fechaAgendada: fechaAgendada ? parseBoliviaDatetime(fechaAgendada) : null,
   });
 
   if (novedad.fechaAgendada) {
@@ -119,7 +128,7 @@ export async function update(
   }
 
   const { titulo, contenido, fecha, fechaAgendada } = data;
-  const newFechaAgendada = fechaAgendada === null ? null : fechaAgendada ? new Date(fechaAgendada) : undefined;
+  const newFechaAgendada = fechaAgendada === null ? null : fechaAgendada ? parseBoliviaDatetime(fechaAgendada) : undefined;
 
   const updated = await novedadesRepository.update(id, {
     ...(titulo !== undefined && { titulo }),

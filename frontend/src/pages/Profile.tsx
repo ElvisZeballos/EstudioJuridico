@@ -7,6 +7,19 @@ import { Input } from '../components/ui/Input';
 import { WhatsAppModal } from '../components/WhatsAppModal';
 import axios from 'axios';
 import type { User } from '../types';
+import { PHONE_COUNTRIES, DEFAULT_PHONE_COUNTRY, OTHER_COUNTRY_VALUE, splitPhone, joinPhone, sanitizePhoneLocal, sanitizeCustomCode, isValidPhoneLocal } from '../utils/phoneCountries';
+import { PhoneCountrySelect } from '../components/ui/PhoneCountrySelect';
+
+function calcularEdad(fechaNacimiento: string): number {
+  const nacimiento = new Date(fechaNacimiento);
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mesActual = hoy.getMonth() - nacimiento.getMonth();
+  if (mesActual < 0 || (mesActual === 0 && hoy.getDate() < nacimiento.getDate())) {
+    edad--;
+  }
+  return edad;
+}
 
 export function Profile() {
   const { user, updateUser } = useAuth();
@@ -21,6 +34,11 @@ export function Profile() {
     direccion: user?.direccion ?? '',
     fechaNacimiento: user?.fechaNacimiento ?? '',
   });
+
+  const initialPhone = splitPhone(user?.telefono);
+  const [phonePrefix, setPhonePrefix] = useState<string>(initialPhone.isOther ? OTHER_COUNTRY_VALUE : initialPhone.code);
+  const [customCode, setCustomCode] = useState(initialPhone.isOther ? initialPhone.code : '');
+  const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
 
   const [pwModal, setPwModal] = useState(false);
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -200,20 +218,30 @@ export function Profile() {
     if (!form.nombre.trim())   errs.nombre   = 'El nombre es requerido.';
     if (!form.apellido.trim()) errs.apellido = 'El apellido es requerido.';
     if (!form.email.trim())    errs.email    = 'El email es requerido.';
+    if (form.fechaNacimiento && user?.role === 'ABOGADO') {
+      const edad = calcularEdad(form.fechaNacimiento);
+      if (edad < 18) {
+        errs.fechaNacimiento = 'No se pueden registrar datos de un abogado menor de 18 años.';
+      }
+    }
+    if (!isValidPhoneLocal(phoneLocal)) {
+      errs.telefono = 'Número de teléfono inválido: solo se permiten dígitos y guiones.';
+    }
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
     setFieldErrors({});
 
     setIsLoading(true);
     try {
+      const finalCode = phonePrefix === OTHER_COUNTRY_VALUE ? customCode.trim() : phonePrefix;
       const updated = await usersApi.update(user.id, {
         nombre: form.nombre,
         apellido: form.apellido,
         email: form.email,
-        telefono: form.telefono,
+        telefono: joinPhone(finalCode, phoneLocal),
         dni: form.dni,
         direccion: form.direccion,
         fechaNacimiento: form.fechaNacimiento,
-      });
+      });;
       updateUser(updated);
       setSuccessMsg('Perfil actualizado correctamente.');
       setTimeout(() => setSuccessMsg(''), 3000);
@@ -504,13 +532,34 @@ export function Profile() {
               placeholder="juan@email.com"
               error={fieldErrors.email}
             />
-            <Input
-              label="Teléfono"
-              type="tel"
-              value={form.telefono}
-              onChange={handleChange('telefono')}
-              placeholder="+591 76543210"
-            />
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
+              <PhoneCountrySelect value={phonePrefix} onChange={setPhonePrefix} />
+              {phonePrefix === OTHER_COUNTRY_VALUE ? (
+                <div className="grid grid-cols-[90px_1fr] gap-2">
+                  <Input
+                    label="Código"
+                    value={customCode}
+                    onChange={(e) => setCustomCode(sanitizeCustomCode(e.target.value))}
+                    placeholder="+213"
+                  />
+                  <Input
+                    label="Teléfono"
+                    value={phoneLocal}
+                    onChange={(e) => setPhoneLocal(sanitizePhoneLocal(e.target.value))}
+                    placeholder="76543210"
+                    error={fieldErrors.telefono}
+                  />
+                </div>
+              ) : (
+                <Input
+                  label="Teléfono"
+                  value={phoneLocal}
+                  onChange={(e) => setPhoneLocal(sanitizePhoneLocal(e.target.value))}
+                  placeholder="76543210"
+                  error={fieldErrors.telefono}
+                />
+              )}
+            </div>
             <Input
               label="CI"
               value={form.dni}
@@ -522,6 +571,9 @@ export function Profile() {
               type="date"
               value={form.fechaNacimiento}
               onChange={handleChange('fechaNacimiento')}
+              min="1900-01-01"
+              max={new Date().toISOString().slice(0, 10)}
+              error={fieldErrors.fechaNacimiento}
             />
             <Input
               label="Dirección"

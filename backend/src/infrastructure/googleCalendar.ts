@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import jwt from 'jsonwebtoken';
 
 function makeOAuth2Client() {
   return new google.auth.OAuth2(
@@ -10,13 +11,14 @@ function makeOAuth2Client() {
 
 export function getAuthUrl(userId: string): string {
   const client = makeOAuth2Client();
+  const state = jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '10m' });
   return client.generateAuthUrl({
     access_type: 'offline',
     scope: [
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/drive.file',
     ],
-    state: userId,
+    state,
     prompt: 'consent',
   });
 }
@@ -42,8 +44,8 @@ export async function createCalendarEvent(
     requestBody: {
       summary: event.titulo + (event.casoTitulo ? ` — ${event.casoTitulo}` : ''),
       description: event.contenido,
-      start: { dateTime: event.fechaAgendada.toISOString(), timeZone: 'America/Argentina/Buenos_Aires' },
-      end: { dateTime: end.toISOString(), timeZone: 'America/Argentina/Buenos_Aires' },
+      start: { dateTime: event.fechaAgendada.toISOString(), timeZone: 'America/La_Paz' },
+      end: { dateTime: end.toISOString(), timeZone: 'America/La_Paz' },
     },
   });
 
@@ -67,8 +69,8 @@ export async function updateCalendarEvent(
     requestBody: {
       summary: event.titulo + (event.casoTitulo ? ` — ${event.casoTitulo}` : ''),
       description: event.contenido,
-      start: { dateTime: event.fechaAgendada.toISOString(), timeZone: 'America/Argentina/Buenos_Aires' },
-      end: { dateTime: end.toISOString(), timeZone: 'America/Argentina/Buenos_Aires' },
+      start: { dateTime: event.fechaAgendada.toISOString(), timeZone: 'America/La_Paz' },
+      end: { dateTime: end.toISOString(), timeZone: 'America/La_Paz' },
     },
   });
 }

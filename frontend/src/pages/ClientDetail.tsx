@@ -8,6 +8,11 @@ import { Modal, ConfirmModal } from '../components/ui/Modal';
 import type { Client, User, ClientFormData } from '../types';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import {
+  PHONE_COUNTRIES,
+  DEFAULT_PHONE_COUNTRY, OTHER_COUNTRY_VALUE, splitPhone, joinPhone, sanitizePhoneLocal, sanitizeCustomCode, isValidPhoneLocal
+} from '../utils/phoneCountries';
+import { PhoneCountrySelect } from '../components/ui/PhoneCountrySelect';
 
 const emptyForm: ClientFormData = {
   nombre: '',
@@ -32,6 +37,8 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+const BOLIVIA_TZ = 'America/La_Paz';
+
 function calcularEdad(fechaNacimiento: string): number {
   const nacimiento = new Date(fechaNacimiento);
   const hoy = new Date();
@@ -55,6 +62,9 @@ export function ClientDetail() {
   const [abogados, setAbogados] = useState<User[]>([]);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [form, setForm] = useState<ClientFormData>(emptyForm);
+  const [phonePrefix, setPhonePrefix] = useState<string>(DEFAULT_PHONE_COUNTRY.code);
+  const [customCode, setCustomCode] = useState('');
+  const [phoneLocal, setPhoneLocal] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -99,6 +109,15 @@ export function ClientDetail() {
       abogadoId: client.abogadoId ?? '',
       referencias: client.referencias ?? [],
     });
+    const { code, local, isOther } = splitPhone(client.telefono);
+    if (isOther) {
+      setPhonePrefix(OTHER_COUNTRY_VALUE);
+      setCustomCode(code);
+    } else {
+      setPhonePrefix(code);
+      setCustomCode('');
+    }
+    setPhoneLocal(local);
     setFormError('');
     setFieldErrors({});
     setIsEditOpen(true);
@@ -134,13 +153,20 @@ export function ClientDetail() {
         errs.fechaNacimiento = 'No se pueden registrar datos de personas menores de 18 años como cliente. Ingrese los datos del padre, madre o apoderado legal.';
       }
     }
+    if (!isValidPhoneLocal(phoneLocal)) {
+      errs.telefono = 'Número de teléfono inválido: solo se permiten dígitos y guiones.';
+    }
+    if (phonePrefix === OTHER_COUNTRY_VALUE && phoneLocal.trim() && !customCode.trim()) {
+      errs.telefono = 'Ingresá el código de país en "Otro" antes de guardar.';
+    }
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
     setFieldErrors({});
 
     if (!client) return;
     setIsSaving(true);
     try {
-      const updated = await clientsApi.update(client.id, form);
+      const finalCode = phonePrefix === OTHER_COUNTRY_VALUE ? customCode.trim() : phonePrefix;
+      const updated = await clientsApi.update(client.id, { ...form, telefono: joinPhone(finalCode, phoneLocal) });
       setClient(updated);
       setIsEditOpen(false);
     } catch (err) {
@@ -332,14 +358,14 @@ export function ClientDetail() {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Creado: {new Date(client.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          Creado: {new Date(client.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
         </div>
         <div className="hidden sm:block w-px h-3 bg-gray-200 dark:bg-gray-700" />
         <div className="flex items-center gap-1.5">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          Actualizado: {new Date(client.updatedAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          Actualizado: {new Date(client.updatedAt).toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
         </div>
       </Card>
 
@@ -400,12 +426,34 @@ export function ClientDetail() {
               placeholder="juan@email.com"
               error={fieldErrors.email}
             />
-            <Input
-              label="Teléfono"
-              value={form.telefono}
-              onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
-              placeholder="+591 76543210"
-            />
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
+              <PhoneCountrySelect value={phonePrefix} onChange={setPhonePrefix} />
+              {phonePrefix === OTHER_COUNTRY_VALUE ? (
+                <div className="grid grid-cols-[90px_1fr] gap-2">
+                  <Input
+                    label="Código"
+                    value={customCode}
+                    onChange={(e) => setCustomCode(sanitizeCustomCode(e.target.value))}
+                    placeholder="+213"
+                  />
+                  <Input
+                    label="Teléfono"
+                    value={phoneLocal}
+                    onChange={(e) => setPhoneLocal(sanitizePhoneLocal(e.target.value))}
+                    placeholder="76543210"
+                    error={fieldErrors.telefono}
+                  />
+                </div>
+              ) : (
+                <Input
+                  label="Teléfono"
+                  value={phoneLocal}
+                  onChange={(e) => setPhoneLocal(sanitizePhoneLocal(e.target.value))}
+                  placeholder="76543210"
+                  error={fieldErrors.telefono}
+                />
+              )}
+            </div>
             <Input
               label="Fecha de nacimiento"
               type="date"

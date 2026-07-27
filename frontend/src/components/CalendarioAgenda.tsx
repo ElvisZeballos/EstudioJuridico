@@ -3,6 +3,12 @@ import type { CasoNovedad } from '../types';
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_SEMANA = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const BOLIVIA_TZ = 'America/La_Paz';
+
+/** Clave "AAAA-MM-DD" de una fecha según el día que es en Bolivia, sin depender del huso del navegador. */
+function boliviaDateKey(date: Date): string {
+  return date.toLocaleDateString('en-CA', { timeZone: BOLIVIA_TZ });
+}
 
 interface Props {
   novedades: CasoNovedad[];
@@ -25,12 +31,11 @@ export function CalendarioAgenda({ novedades }: Props) {
   const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  // Group novedades by day string YYYY-MM-DD
+  // Group novedades by day string YYYY-MM-DD (según el día en Bolivia)
   const byDay: Record<string, CasoNovedad[]> = {};
   for (const n of novedades) {
     if (!n.fechaAgendada) continue;
-    const d = new Date(n.fechaAgendada);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const key = boliviaDateKey(new Date(n.fechaAgendada));
     (byDay[key] ??= []).push(n);
   }
 
@@ -38,7 +43,7 @@ export function CalendarioAgenda({ novedades }: Props) {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
-  const todayKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  const todayKey = boliviaDateKey(hoy);
 
   const selectedEvents = selectedDay ? (byDay[selectedDay] ?? []) : [];
 
@@ -149,7 +154,7 @@ function EventRow({ novedad }: { novedad: CasoNovedad }) {
     <div className="flex items-start gap-2.5 p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/40">
       <div className="shrink-0 text-center mt-0.5">
         <div className="text-xs font-bold text-indigo-700 dark:text-indigo-300 leading-none">
-          {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
+          {fecha.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', timeZone: BOLIVIA_TZ })}
         </div>
       </div>
       <div className="flex-1 min-w-0">
