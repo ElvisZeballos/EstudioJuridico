@@ -92,13 +92,17 @@ async function extractPdfText(filePath: string): Promise<string | null> {
   }
 }
 
-async function convertPdfToImages(filePath: string): Promise<Buffer[]> {
+async function convertPdfToImages(filePath: string, maxPages: number): Promise<Buffer[]> {
   try {
     const { pdf } = await import('pdf-to-img');
-    const doc = await pdf(filePath, { scale: 2 });
+    const doc = await pdf(filePath, { scale: 1 });
     const images: Buffer[] = [];
     for await (const page of doc) {
       images.push(Buffer.from(page));
+      if (images.length >= maxPages) {
+        logger.warn(`PDF→imágenes: ${path.basename(filePath)} truncado a ${maxPages} página(s) por el límite de imágenes del modelo`);
+        break;
+      }
     }
     return images;
   } catch (err) {
@@ -148,12 +152,16 @@ export async function analyzeNotificationsWithGroq(userDir: string): Promise<voi
         contentParts.push({ type: 'text', text: `\nMensajes de texto:\n${textLines}` });
       }
 
+      const MAX_IMAGES_PER_REQUEST = 3;
+      let imageCount = 0;
+
       for (const msg of conv.mensajes) {
         if (msg.tipo === 'imagen' && msg.archivo) {
           const filePath = path.join(userDir, msg.archivo);
-          if (fs.existsSync(filePath)) {
+          if (fs.existsSync(filePath) && imageCount < MAX_IMAGES_PER_REQUEST) {
             const base64 = fs.readFileSync(filePath).toString('base64');
             contentParts.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}` } });
+            imageCount++;
             if (msg.caption) {
               contentParts.push({ type: 'text', text: `Descripción de la imagen: ${msg.caption}` });
             }
@@ -163,11 +171,13 @@ export async function analyzeNotificationsWithGroq(userDir: string): Promise<voi
         if (msg.tipo === 'documento_pdf' && msg.archivo) {
           const filePath = path.join(userDir, msg.archivo);
           if (fs.existsSync(filePath)) {
-            const pdfImages = await convertPdfToImages(filePath);
+            const remaining = MAX_IMAGES_PER_REQUEST - imageCount;
+            const pdfImages = remaining > 0 ? await convertPdfToImages(filePath, remaining) : [];
             if (pdfImages.length > 0) {
-              contentParts.push({ type: 'text', text: `\nDocumento PDF (${pdfImages.length} página(s)):` });
+              contentParts.push({ type: 'text', text: `\nDocumento PDF (${pdfImages.length} página(s) analizadas):` });
               for (const imgBuf of pdfImages) {
                 contentParts.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${imgBuf.toString('base64')}` } });
+                imageCount++;
               }
             } else {
               const text = await extractPdfText(filePath);
@@ -175,7 +185,7 @@ export async function analyzeNotificationsWithGroq(userDir: string): Promise<voi
                 type: 'text',
                 text: text
                   ? `\nContenido del PDF:\n${text}`
-                  : '\n[PDF adjunto: no se pudo extraer texto, posiblemente es un documento escaneado]',
+                  : '\n[PDF adjunto: no se pudo extraer texto — es un documento escaneado y ya se alcanzó el máximo de imágenes permitidas por solicitud]',
               });
             }
           }
@@ -183,7 +193,7 @@ export async function analyzeNotificationsWithGroq(userDir: string): Promise<voi
       }
 
       const response = await groq.chat.completions.create({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'qwen/qwen3.6-27b',
         messages: [{ role: 'user', content: contentParts }],
         response_format: { type: 'json_object' },
         temperature: 0.1,

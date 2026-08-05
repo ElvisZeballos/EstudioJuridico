@@ -1,0 +1,15 @@
+{
+  "respuesta_1": {
+    "nurej": null,
+    "fecha": "2026-08-04",
+    "resumenAbogado": "No se pudo procesar el contenido del documento adjunto. Se recomienda revisar manualmente la imagen o PDF recibido.",
+    "resumenCliente": "Estimado/a Elvis Yerko Zeballos Y., lamentablemente no pudimos leer el documento que recibió. Le recomendamos contactar a su abogado para revisar el contenido manualmente.",
+    "resumenGeneral": "No fue posible procesar el documento o imagen recibida.",
+    "juzgado": null,
+    "tipoDocumento": null,
+    "error": true,
+    "media": [
+      "media/CamScanner 30-03-2026 15_08_16-16_1.pdf"
+    ]
+  }
+}

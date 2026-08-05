@@ -166,7 +166,9 @@ export async function startWhatsAppSession(userId: string): Promise<void> {
   sessionData.socket = socket;
 
   socket.ev.on('creds.update', saveCreds);
-
+  
+  //listeners de mensajes entrantes y de estado de conexión
+  
   socket.ev.on('messaging-history.set', ({ messages: msgs }) => {
     persistMessages(userId, msgs).catch((err) =>
       logger.error(`WhatsApp: error guardando historial de ${userId}: ${(err as Error).message}`)

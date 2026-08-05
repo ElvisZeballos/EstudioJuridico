@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect,  } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { casosApi, usersApi, clientsApi, juzgadosApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,7 @@ import { Input, Select, Textarea } from '../components/ui/Input';
 import { useFormState } from '../hooks/useFormState';
 import { estadoInfo, CASO_ESTADOS } from '../constants/caso';
 import { toggleId } from '../utils/format';
+import { ClienteMultiSelect } from '../components/ClienteMultiSelect';
 import type { Caso, CasoEstado, CasoFormData, User, Client, Juzgado } from '../types';
 
 const emptyForm: CasoFormData = {
@@ -332,36 +333,14 @@ export function Casos() {
             </div>
 
             {/* Clientes */}
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Clientes * <span className="text-xs text-gray-400 font-normal">({form.clienteIds.length} seleccionado{form.clienteIds.length !== 1 ? 's' : ''})</span>
-              </label>
-              {clientes.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-gray-500 py-2">No hay clientes disponibles.</p>
-              ) : (
-                <div className={`border rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 max-h-36 overflow-y-auto ${fieldErrors.clientes ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}>
-                  {clientes.map((cl) => (
-                    <label key={cl.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.clienteIds.includes(cl.id)}
-                        onChange={() => setForm((p) => ({ ...p, clienteIds: toggleId(p.clienteIds, cl.id) }))}
-                        className="w-4 h-4 accent-indigo-600"
-                      />
-                      <span className="text-sm text-gray-800 dark:text-gray-200">{cl.nombre} {cl.apellido}</span>
-                      {cl.dni && <span className="text-xs text-gray-400 font-mono">CI: {cl.dni}</span>}
-                      {!cl.userActive && <span className="text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-full">Pendiente</span>}
-                      <span className="text-xs text-gray-400 ml-auto">{cl.email}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-              {fieldErrors.clientes && (
-                <p className="text-xs text-red-500 flex items-center gap-1 mt-0.5">
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                  {fieldErrors.clientes}
-                </p>
-              )}
+            <div className="col-span-2">
+              <ClienteMultiSelect
+                key={String(showModal)}
+                clientes={clientes}
+                selectedIds={form.clienteIds}
+                onChange={(ids) => setForm((p) => ({ ...p, clienteIds: ids }))}
+                error={fieldErrors.clientes}
+              />
             </div>
 
             <Textarea
