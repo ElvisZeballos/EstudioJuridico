@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { encryptIfDefined, decryptIfDefined } from '../../config/encryption';
 import { logger } from '../../config/logger';
 import prisma from '../../shared/prisma';
+import { isValidEmail, isPhoneInUse, isDniInUse } from '../../shared/validators';
 import * as clientsRepository from './clients.repository';
 
 type ClientRaw = Awaited<ReturnType<typeof clientsRepository.findById>>;
@@ -109,9 +110,19 @@ export async function create(
   if (!nombre || !apellido || !email) {
     return { error: 'nombre, apellido y email son requeridos', status: 400 as const };
   }
+  if (!isValidEmail(email)) {
+    return { error: 'El formato del correo electrónico no es válido.', status: 400 as const };
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return { error: 'El email ya está registrado', status: 409 as const };
+
+  if (telefono && await isPhoneInUse(telefono)) {
+    return { error: 'El número de teléfono ya está en uso.', status: 409 as const };
+  }
+  if (dni && await isDniInUse(dni)) {
+    return { error: 'La cédula de identidad ya está en uso.', status: 409 as const };
+  }
 
   if (fechaNacimiento) {
     const errorEdad = validarFechaNacimientoCliente(fechaNacimiento);
@@ -161,6 +172,13 @@ export async function update(
   if (!existing) return { error: 'Client not found', status: 404 as const };
 
   const { notas, abogadoId, active, referencias, nombre, apellido, dni, telefono, direccion, fechaNacimiento } = data as Record<string, unknown>;
+
+  if (dni !== undefined && dni && typeof dni === 'string' && await isDniInUse(dni, existing.userId)) {
+    return { error: 'La cédula de identidad ya está en uso.', status: 409 as const };
+  }
+  if (telefono !== undefined && telefono && typeof telefono === 'string' && await isPhoneInUse(telefono, existing.userId)) {
+    return { error: 'El número de teléfono ya está en uso.', status: 409 as const };
+  }
 
   const userUpdate: Record<string, unknown> = {};
   if (nombre !== undefined) userUpdate.nombre = nombre;

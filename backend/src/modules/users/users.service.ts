@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { encryptIfDefined, decryptIfDefined } from '../../config/encryption';
 import { logger } from '../../config/logger';
 import { sendEmail } from '../../infrastructure/email';
+import { isValidEmail, isPhoneInUse, isDniInUse } from '../../shared/validators';
 import * as usersRepository from './users.repository';
 
 type ServiceError = { error: string; status: number };
@@ -21,26 +22,6 @@ export function decryptUser(user: {
     direccion: decryptIfDefined(user.direccion),
     fechaNacimiento: decryptIfDefined(user.fechaNacimiento),
   };
-}
-
-async function isPhoneInUse(telefono: string, excludeId?: string): Promise<boolean> {
-  const users = await usersRepository.findAllWithEncryptedFields();
-  const normalized = telefono.replace(/\s+/g, '');
-  return users.some(u => {
-    if (excludeId && u.id === excludeId) return false;
-    if (!u.telefono) return false;
-    return decryptIfDefined(u.telefono)?.replace(/\s+/g, '') === normalized;
-  });
-}
-
-async function isDniInUse(dni: string, excludeId?: string): Promise<boolean> {
-  const users = await usersRepository.findAllWithDni();
-  const normalized = dni.replace(/[\s.\-]/g, '').toLowerCase();
-  return users.some(u => {
-    if (excludeId && u.id === excludeId) return false;
-    if (!u.dni) return false;
-    return decryptIfDefined(u.dni)?.replace(/[\s.\-]/g, '').toLowerCase() === normalized;
-  });
 }
 
 export async function getAll() {
@@ -68,6 +49,9 @@ export async function create(data: {
 
   if (!email || !password || !nombre || !apellido) {
     return { error: 'Email, password, nombre and apellido are required', status: 400 as const };
+  }
+  if (!isValidEmail(email)) {
+    return { error: 'El formato del correo electrónico no es válido.', status: 400 as const };
   }
 
   const existing = await usersRepository.findByEmail(email);
@@ -116,6 +100,9 @@ export async function update(
 
   const { nombre, apellido, email, role, dni, telefono, direccion, fechaNacimiento, password, active } = body as Record<string, string | boolean | undefined>;
 
+  if (email !== undefined && typeof email === 'string' && !isValidEmail(email)) {
+    return { error: 'El formato del correo electrónico no es válido.', status: 400 as const };
+  }
   if (telefono && typeof telefono === 'string' && await isPhoneInUse(telefono, id)) {
     return { error: 'El número de teléfono ya está en uso.', status: 409 as const };
   }
@@ -126,7 +113,7 @@ export async function update(
   const updateData: Record<string, unknown> = {
     ...(nombre !== undefined && { nombre }),
     ...(apellido !== undefined && { apellido }),
-    ...(email !== undefined && { email }),
+    ...(requesterRole === 'ADMIN' && email !== undefined && { email }),
     ...(dni !== undefined && { dni: encryptIfDefined(dni as string) }),
     ...(telefono !== undefined && { telefono: encryptIfDefined(telefono as string) }),
     ...(direccion !== undefined && { direccion: encryptIfDefined(direccion as string) }),
@@ -288,8 +275,11 @@ export async function inviteUser(
   role: string | undefined,
   actorRole: string,
   actorLog: object
-): Promise<ServiceError | { user: ReturnType<typeof decryptUser> }> {
+) {
   if (!email) return { error: 'El email es requerido', status: 400 as const };
+  if (!isValidEmail(email)) {
+    return { error: 'El formato del correo electrónico no es válido.', status: 400 as const };
+  }
 
   const assignedRole = actorRole === 'ABOGADO' ? 'CLIENTE' : (role || 'CLIENTE');
   if (!['ADMIN', 'ABOGADO', 'CLIENTE', 'AUXILIAR'].includes(assignedRole)) {

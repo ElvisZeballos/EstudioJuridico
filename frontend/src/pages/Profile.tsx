@@ -7,7 +7,7 @@ import { Input } from '../components/ui/Input';
 import { WhatsAppModal } from '../components/WhatsAppModal';
 import axios from 'axios';
 import type { User } from '../types';
-import { PHONE_COUNTRIES, DEFAULT_PHONE_COUNTRY, OTHER_COUNTRY_VALUE, splitPhone, joinPhone, sanitizePhoneLocal, sanitizeCustomCode, isValidPhoneLocal } from '../utils/phoneCountries';
+import {OTHER_COUNTRY_VALUE, splitPhone, joinPhone, sanitizePhoneLocal, sanitizeCustomCode, isValidPhoneLocal } from '../utils/phoneCountries';
 import { PhoneCountrySelect } from '../components/ui/PhoneCountrySelect';
 
 function calcularEdad(fechaNacimiento: string): number {
@@ -217,7 +217,6 @@ export function Profile() {
     const errs: Record<string, string> = {};
     if (!form.nombre.trim())   errs.nombre   = 'El nombre es requerido.';
     if (!form.apellido.trim()) errs.apellido = 'El apellido es requerido.';
-    if (!form.email.trim())    errs.email    = 'El email es requerido.';
     if (form.fechaNacimiento && user?.role === 'ABOGADO') {
       const edad = calcularEdad(form.fechaNacimiento);
       if (edad < 18) {
@@ -236,12 +235,11 @@ export function Profile() {
       const updated = await usersApi.update(user.id, {
         nombre: form.nombre,
         apellido: form.apellido,
-        email: form.email,
         telefono: joinPhone(finalCode, phoneLocal),
         dni: form.dni,
         direccion: form.direccion,
         fechaNacimiento: form.fechaNacimiento,
-      });;
+      });
       updateUser(updated);
       setSuccessMsg('Perfil actualizado correctamente.');
       setTimeout(() => setSuccessMsg(''), 3000);
@@ -527,10 +525,14 @@ export function Profile() {
               label="Email"
               type="email"
               value={form.email}
-              onChange={handleChange('email')}
-              required
-              placeholder="juan@email.com"
-              error={fieldErrors.email}
+              disabled
+              hint={
+                user?.role === 'ABOGADO'
+                  ? 'No se puede modificar: es la referencia para iniciar sesión y recibir el resumen de notificaciones judiciales. Contactá al administrador si necesitás cambiarlo.'
+                  : user?.role === 'ADMIN'
+                  ? 'No se puede modificar desde acá: es la referencia para iniciar sesión en el sistema.'
+                  : 'No se puede modificar: es la referencia para iniciar sesión. Contactá al administrador si necesitás cambiarlo.'
+              }
             />
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
               <PhoneCountrySelect value={phonePrefix} onChange={setPhonePrefix} />

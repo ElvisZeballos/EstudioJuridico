@@ -1,5 +1,6 @@
 import { CasoEstado } from '@prisma/client';
 import { logger } from '../../config/logger';
+import { isValidNurej, normalizeNurej } from '../../shared/validators';
 import * as casosRepository from './casos.repository';
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -96,6 +97,17 @@ export async function create(
   if (!abogadoIds?.length) return { error: 'Se requiere al menos un abogado', status: 400 as const };
   if (!clienteIds?.length) return { error: 'Se requiere al menos un cliente', status: 400 as const };
 
+  const numeroNormalizado = numero ? normalizeNurej(numero) : undefined;
+  if (numeroNormalizado && !isValidNurej(numeroNormalizado)) {
+    return { error: 'El NUREJ solo puede contener números y, como máximo, un guion (ej: 3550 o 3550-1).', status: 400 as const };
+  }
+  if (numeroNormalizado) {
+    const existingNumero = await casosRepository.findByNumero(numeroNormalizado);
+    if (existingNumero) {
+      return { error: 'El NUREJ ingresado ya está registrado en otro caso.', status: 409 as const };
+    }
+  }
+
   const abogadosContraparteData = Array.isArray(abogadosContraparte)
     ? abogadosContraparte.filter((a) => a.nombre)
     : [];
@@ -107,7 +119,7 @@ export async function create(
     titulo,
     descripcion: descripcion || null,
     estado: (estado || 'ACTIVO') as CasoEstado,
-    numero: numero || null,
+    numero: numeroNormalizado || null,
     fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
     fechaCierre: fechaCierre ? new Date(fechaCierre) : null,
     notas: notas || null,
@@ -186,13 +198,24 @@ export async function update(
 
   const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId, abogadosContraparte, demandados } = data;
 
+  const numeroNormalizado = numero !== undefined && (numero as string) ? normalizeNurej(numero as string) : (numero as string | undefined);
+  if (numeroNormalizado && numeroNormalizado !== existing.numero) {
+    if (!isValidNurej(numeroNormalizado)) {
+      return { error: 'El NUREJ solo puede contener números y, como máximo, un guion (ej: 3550 o 3550-1).', status: 400 as const };
+    }
+    const existingNumero = await casosRepository.findByNumero(numeroNormalizado);
+    if (existingNumero && existingNumero.id !== id) {
+      return { error: 'El NUREJ ingresado ya está registrado en otro caso.', status: 409 as const };
+    }
+  }
+
   const changes = await buildHistorialChanges(existing, data);
 
   const updateData: Record<string, unknown> = {
     ...(titulo !== undefined && { titulo }),
     ...(descripcion !== undefined && { descripcion }),
     ...(estado !== undefined && { estado }),
-    ...(numero !== undefined && { numero: (numero as string) || null }),
+    ...(numero !== undefined && { numero: numeroNormalizado || null }),
     ...(fechaInicio !== undefined && { fechaInicio: fechaInicio ? new Date(fechaInicio as string) : null }),
     ...(fechaCierre !== undefined && { fechaCierre: fechaCierre ? new Date(fechaCierre as string) : null }),
     ...(notas !== undefined && { notas }),

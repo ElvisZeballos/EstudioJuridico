@@ -43,6 +43,10 @@ export async function findClientByUserId(userId: string) {
   return prisma.client.findFirst({ where: { userId } });
 }
 
+export async function findByNumero(numero: string) {
+  return prisma.caso.findFirst({ where: { numero, active: true } });
+}
+
 export async function create(data: Prisma.CasoUncheckedCreateInput) {
   return prisma.caso.create({ data, include: CASO_INCLUDE });
 }
