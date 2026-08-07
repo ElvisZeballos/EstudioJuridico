@@ -88,9 +88,9 @@ export function ClientDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (user?.role === 'ADMIN') {
-      usersApi.getAll()
-        .then((users) => setAbogados(users.filter((u) => u.role === 'ABOGADO' && u.active)))
+    if (user?.role === 'ABOGADO') {
+      usersApi.getAbogados()
+        .then(setAbogados)
         .catch(() => {});
     }
   }, [user]);
@@ -286,8 +286,8 @@ export function ClientDetail() {
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{client.email}</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${client.active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
-                {client.active ? 'Activo' : 'Inactivo'}
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${client.userActive ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'}`}>
+                {client.userActive ? 'Activo' : 'Sin acceso'}
               </span>
               {client.abogado && (
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
@@ -429,6 +429,8 @@ export function ClientDetail() {
               required
               placeholder="juan@email.com"
               error={fieldErrors.email}
+              disabled={client.userActive}
+              hint={client.userActive ? 'No se puede modificar: el cliente ya tiene acceso activo al sistema.' : undefined}
             />
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
               <PhoneCountrySelect value={phonePrefix} onChange={setPhonePrefix} />
@@ -474,7 +476,7 @@ export function ClientDetail() {
               placeholder="Av. Blanco Galindo Km 5, Cochabamba"
               containerClassName="sm:col-span-2"
             />
-            {user?.role === 'ADMIN' && (
+            {user?.role === 'ABOGADO' && (
               <Select
                 label="Abogado asignado"
                 value={form.abogadoId ?? ''}

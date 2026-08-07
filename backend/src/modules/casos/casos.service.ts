@@ -130,6 +130,12 @@ export async function create(
     demandados: demandadosData.length > 0 ? { create: demandadosData } : undefined,
   });
 
+  if (abogadoIds.length === 1) {
+    for (const clienteId of clienteIds) {
+      await casosRepository.assignAbogadoIfEmpty(clienteId, abogadoIds[0]);
+    }
+  }
+
   logger.info('CASOS: creado', { ...actorLog, casoId: caso.id, titulo: caso.titulo });
   return { caso: transformCaso(caso) };
 }

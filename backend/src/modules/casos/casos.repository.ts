@@ -43,6 +43,13 @@ export async function findClientByUserId(userId: string) {
   return prisma.client.findFirst({ where: { userId } });
 }
 
+export async function assignAbogadoIfEmpty(clienteId: string, abogadoId: string) {
+  return prisma.client.updateMany({
+    where: { id: clienteId, abogadoId: null },
+    data: { abogadoId },
+  });
+}
+
 export async function findByNumero(numero: string) {
   return prisma.caso.findFirst({ where: { numero, active: true } });
 }

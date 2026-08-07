@@ -28,8 +28,12 @@ export async function markResetTokenUsed(id: string) {
 }
 
 export async function updateUserPassword(userId: string, hashedPassword: string) {
+  await prisma.client.updateMany({
+    where: { userId },
+    data: { active: true },
+  });
   return prisma.user.update({
     where: { id: userId },
-    data: { password: hashedPassword, active: true },
+    data: { password: hashedPassword, active: true, deactivatedAt: null },
   });
 }

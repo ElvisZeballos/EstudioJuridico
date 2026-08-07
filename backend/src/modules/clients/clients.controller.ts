@@ -32,7 +32,7 @@ export async function getClientById(req: AuthRequest, res: Response): Promise<vo
 
 export async function createClient(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const result = await clientsService.create(req.body, actor(req));
+    const result = await clientsService.create(req.body, req.user!.id, req.user!.role, actor(req));
     if ('error' in result) {
       res.status(result.status ?? 500).json({ error: result.error });
       return;

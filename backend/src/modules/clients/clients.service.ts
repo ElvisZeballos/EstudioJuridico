@@ -103,6 +103,8 @@ export async function create(
     direccion?: string; fechaNacimiento?: string; notas?: string; abogadoId?: string;
     referencias?: { nombre: string; relacion: string; telefono: string }[];
   },
+  requesterId: string,
+  requesterRole: string,
   actorLog: object
 ) {
   const { nombre, apellido, email, dni, telefono, direccion, fechaNacimiento, notas, abogadoId, referencias } = data;
@@ -148,9 +150,11 @@ export async function create(
     },
   });
 
+  const assignedAbogadoId = requesterRole === 'ABOGADO' ? requesterId : (abogadoId || null);
+
   const client = await clientsRepository.create({
     userId: user.id,
-    abogadoId: abogadoId || null,
+    abogadoId: assignedAbogadoId,
     notas: encryptIfDefined(notas),
     referencias: refs,
   });
@@ -171,13 +175,25 @@ export async function update(
   const existing = await clientsRepository.findById(id);
   if (!existing) return { error: 'Client not found', status: 404 as const };
 
-  const { notas, abogadoId, active, referencias, nombre, apellido, dni, telefono, direccion, fechaNacimiento } = data as Record<string, unknown>;
+  const { notas, abogadoId, active, referencias, nombre, apellido, dni, telefono, direccion, fechaNacimiento, email } = data as Record<string, unknown>;
 
   if (dni !== undefined && dni && typeof dni === 'string' && await isDniInUse(dni, existing.userId)) {
     return { error: 'La cédula de identidad ya está en uso.', status: 409 as const };
   }
   if (telefono !== undefined && telefono && typeof telefono === 'string' && await isPhoneInUse(telefono, existing.userId)) {
     return { error: 'El número de teléfono ya está en uso.', status: 409 as const };
+  }
+  if (email !== undefined && typeof email === 'string' && email !== existing.user.email) {
+    if (existing.user.active) {
+      return { error: 'No se puede modificar el email de un cliente que ya tiene acceso activo al sistema. Contactá al administrador si es necesario.', status: 400 as const };
+    }
+    if (!isValidEmail(email)) {
+      return { error: 'El formato del correo electrónico no es válido.', status: 400 as const };
+    }
+    const existingEmailUser = await prisma.user.findUnique({ where: { email } });
+    if (existingEmailUser) {
+      return { error: 'El email ya está registrado', status: 409 as const };
+    }
   }
 
   const userUpdate: Record<string, unknown> = {};
@@ -186,6 +202,9 @@ export async function update(
   if (dni !== undefined) userUpdate.dni = encryptIfDefined(dni as string);
   if (telefono !== undefined) userUpdate.telefono = encryptIfDefined(telefono as string);
   if (direccion !== undefined) userUpdate.direccion = encryptIfDefined(direccion as string);
+  if (email !== undefined && typeof email === 'string' && email !== existing.user.email) {
+    userUpdate.email = email;
+  }
   if (fechaNacimiento !== undefined) {
   if (fechaNacimiento) {
     const errorEdad = validarFechaNacimientoCliente(fechaNacimiento as string);
@@ -197,7 +216,7 @@ export async function update(
   const clientUpdate: Record<string, unknown> = {};
   if (notas !== undefined) clientUpdate.notas = encryptIfDefined(notas as string);
   if (active !== undefined) clientUpdate.active = active;
-  if (actorRole === 'ADMIN' && abogadoId !== undefined) {
+  if (actorRole === 'ABOGADO' && abogadoId !== undefined) {
     clientUpdate.abogadoId = abogadoId || null;
   }
   if (Array.isArray(referencias)) {
