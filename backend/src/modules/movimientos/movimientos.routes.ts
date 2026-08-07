@@ -5,7 +5,7 @@ import * as movimientosController from './movimientos.controller';
 const router = Router();
 
 router.use(authenticateToken);
-router.use(requireRole('ADMIN', 'ABOGADO'));
+router.use(requireRole('ABOGADO'));
 
 router.get('/', movimientosController.getAllMovimientos);
 router.get('/stats', movimientosController.getMovimientoStats);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { juzgadosApi } from '../services/api';
 import { Modal, ConfirmModal } from '../components/ui/Modal';
 import { Input, Select, Textarea } from '../components/ui/Input';
@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import type { Juzgado, JuzgadoFormData } from '../types';
 import { JUZGADO_TIPOS, inferJuzgadoTipo } from '../constants/juzgado';
 import { useFormState } from '../hooks/useFormState';
+import { useAuth } from '../context/AuthContext';
 
 const emptyForm: JuzgadoFormData = {
   nombre: '', tipo: '', direccion: '', ciudad: '', telefono: '', notas: '',
@@ -17,8 +18,12 @@ const TIPO_OPTIONS = [
 ];
 
 export function Juzgados() {
+  const { user } = useAuth();
+  const canWrite = user?.role === 'ABOGADO';
   const [juzgados, setJuzgados] = useState<Juzgado[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [tipoFilter, setTipoFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Juzgado | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Juzgado | null>(null);
@@ -26,6 +31,21 @@ export function Juzgados() {
   const {
     form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit,
   } = useFormState<JuzgadoFormData>(emptyForm);
+
+  const filtered = useMemo(
+    () =>
+      juzgados.filter((j) => {
+        if (tipoFilter && j.tipo !== tipoFilter) return false;
+        const q = searchTerm.toLowerCase();
+        if (!q) return true;
+        return (
+          j.nombre.toLowerCase().includes(q) ||
+          (j.ciudad && j.ciudad.toLowerCase().includes(q)) ||
+          (j.direccion && j.direccion.toLowerCase().includes(q))
+        );
+      }),
+    [juzgados, searchTerm, tipoFilter],
+  );
 
   useEffect(() => { load(); }, []);
 
@@ -93,16 +113,39 @@ export function Juzgados() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Juzgados</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {juzgados.length} juzgado{juzgados.length !== 1 ? 's' : ''} registrado{juzgados.length !== 1 ? 's' : ''}
+            {filtered.length} juzgado{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button onClick={openCreate} icon={
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        }>
-          Nuevo juzgado
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreate} icon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          }>
+            Nuevo juzgado
+          </Button>
+        )}
+      </div>
+
+      {/* Búsqueda y filtro */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Input
+          placeholder="Buscar por nombre, ciudad o dirección..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          leftIcon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          }
+          containerClassName="flex-1"
+        />
+        <Select
+          value={tipoFilter}
+          onChange={(e) => setTipoFilter(e.target.value)}
+          options={[{ value: '', label: 'Todos los tipos' }, ...JUZGADO_TIPOS.map((t) => ({ value: t, label: t }))]}
+          containerClassName="sm:w-56"
+        />
       </div>
 
       {/* Content */}
@@ -116,13 +159,15 @@ export function Juzgados() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
           <p className="text-gray-500 dark:text-gray-400">No hay juzgados registrados.</p>
-          <button onClick={openCreate} className="mt-3 text-indigo-600 dark:text-indigo-400 text-sm hover:underline">
-            Agregar el primero
-          </button>
+          {canWrite && (
+            <button onClick={openCreate} className="mt-3 text-indigo-600 dark:text-indigo-400 text-sm hover:underline">
+              Agregar el primero
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {juzgados.map((j) => (
+          {filtered.map((j) => (
             <div key={j.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -133,26 +178,28 @@ export function Juzgados() {
                     </span>
                   )}
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <button
-                    onClick={() => openEdit(j)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                    title="Editar"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(j)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                    title="Eliminar"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
+                {canWrite && (
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => openEdit(j)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                      title="Editar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(j)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                      title="Eliminar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5 text-sm text-gray-600 dark:text-gray-400">

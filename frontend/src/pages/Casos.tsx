@@ -1,4 +1,4 @@
-import { useState, useEffect,  } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { casosApi, usersApi, clientsApi, juzgadosApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +33,8 @@ export function Casos() {
   const navigate = useNavigate();
   const [casos, setCasos] = useState<Caso[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [juzgadoFilter, setJuzgadoFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Caso | null>(null);
   const [abogados, setAbogados] = useState<User[]>([]);
@@ -41,6 +43,29 @@ export function Casos() {
 
   const canWrite = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
   const canDelete = user?.role === 'ADMIN';
+
+  const juzgadosDisponibles = useMemo(() => {
+    const map = new Map<string, string>();
+    casos.forEach((c) => {
+      if (c.juzgado) map.set(c.juzgado.id, `${c.juzgado.nombre}${c.juzgado.ciudad ? ` — ${c.juzgado.ciudad}` : ''}`);
+    });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [casos]);
+
+  const filtered = useMemo(
+    () =>
+      casos.filter((c) => {
+        if (juzgadoFilter && c.juzgado?.id !== juzgadoFilter) return false;
+        const q = searchTerm.toLowerCase();
+        if (!q) return true;
+        return (
+          c.titulo.toLowerCase().includes(q) ||
+          (c.numero && c.numero.toLowerCase().includes(q)) ||
+          c.clientes.some((cl) => `${cl.cliente.nombre} ${cl.cliente.apellido}`.toLowerCase().includes(q))
+        );
+      }),
+    [casos, searchTerm, juzgadoFilter],
+  );
 
   const { form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit } =
     useFormState<CasoFormData>(emptyForm);
@@ -117,7 +142,7 @@ export function Casos() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Casos</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {casos.length} caso{casos.length !== 1 ? 's' : ''} registrado{casos.length !== 1 ? 's' : ''}
+            {filtered.length} caso{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
         {canWrite && (
@@ -128,6 +153,29 @@ export function Casos() {
           }>
             Nuevo caso
           </Button>
+        )}
+      </div>
+
+      {/* Búsqueda y filtro */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Input
+          placeholder="Buscar por título, NUREJ o cliente..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          leftIcon={
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          }
+          containerClassName="flex-1"
+        />
+        {juzgadosDisponibles.length > 0 && (
+          <Select
+            value={juzgadoFilter}
+            onChange={(e) => setJuzgadoFilter(e.target.value)}
+            options={[{ value: '', label: 'Todos los juzgados' }, ...juzgadosDisponibles]}
+            containerClassName="sm:w-64"
+          />
         )}
       </div>
 
@@ -150,7 +198,7 @@ export function Casos() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {casos.map((c) => {
+          {filtered.map((c) => {
             const estado = estadoInfo(c.estado);
             return (
               <div

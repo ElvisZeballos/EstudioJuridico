@@ -9,9 +9,9 @@ casoNovedadesRouter.use(authenticateToken);
 casoNovedadesRouter.use(requireRole('ADMIN', 'ABOGADO', 'CLIENTE', 'AUXILIAR'));
 
 casoNovedadesRouter.get('/', novedadesController.getNovedadesByCaso);
-casoNovedadesRouter.post('/', requireRole('ADMIN', 'ABOGADO'), novedadesController.createNovedad);
-casoNovedadesRouter.put('/:id', requireRole('ADMIN', 'ABOGADO'), novedadesController.updateNovedad);
-casoNovedadesRouter.delete('/:id', requireRole('ADMIN', 'ABOGADO'), novedadesController.deleteNovedad);
+casoNovedadesRouter.post('/', requireRole('ABOGADO'), novedadesController.createNovedad);
+casoNovedadesRouter.put('/:id', requireRole('ABOGADO'), novedadesController.updateNovedad);
+casoNovedadesRouter.delete('/:id', requireRole('ABOGADO'), novedadesController.deleteNovedad);
 
 // Global novedad queries under /api/novedades
 export const novedadesRouter = Router();

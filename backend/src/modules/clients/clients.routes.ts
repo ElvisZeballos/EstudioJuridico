@@ -10,7 +10,7 @@ router.get('/stats', requireRole('ADMIN', 'ABOGADO', 'AUXILIAR'), clientsControl
 router.get('/', requireRole('ADMIN', 'ABOGADO', 'CLIENTE', 'AUXILIAR'), clientsController.getAllClients);
 router.post('/', requireRole('ABOGADO'), clientsController.createClient);
 router.get('/:id', requireRole('ADMIN', 'ABOGADO', 'CLIENTE', 'AUXILIAR'), clientsController.getClientById);
-router.put('/:id', requireRole('ABOGADO', 'AUXILIAR'), clientsController.updateClient);
+router.put('/:id', requireRole('ABOGADO'), clientsController.updateClient);
 router.delete('/:id', requireRole('ABOGADO'), clientsController.deleteClient);
 
 export default router;
