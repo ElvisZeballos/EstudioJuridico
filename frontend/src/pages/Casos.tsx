@@ -9,6 +9,8 @@ import { useFormState } from '../hooks/useFormState';
 import { estadoInfo, CASO_ESTADOS } from '../constants/caso';
 import { toggleId } from '../utils/format';
 import { ClienteMultiSelect } from '../components/ClienteMultiSelect';
+import { ViewSwitcher } from '../components/ui/ViewSwitcher';
+import { useViewMode } from '../hooks/useViewMode';
 import type { Caso, CasoEstado, CasoFormData, User, Client, Juzgado } from '../types';
 
 const emptyForm: CasoFormData = {
@@ -43,6 +45,8 @@ export function Casos() {
 
   const canWrite = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
   const canDelete = user?.role === 'ADMIN';
+  const showViewSwitcher = user?.role === 'ABOGADO' || user?.role === 'AUXILIAR';
+  const { viewMode, setViewMode } = useViewMode('casos', showViewSwitcher);
 
   const juzgadosDisponibles = useMemo(() => {
     const map = new Map<string, string>();
@@ -177,6 +181,7 @@ export function Casos() {
             containerClassName="sm:w-64"
           />
         )}
+        {showViewSwitcher && <ViewSwitcher value={viewMode} onChange={setViewMode} />}
       </div>
 
       {/* Content */}
@@ -195,6 +200,52 @@ export function Casos() {
               Agregar el primero
             </button>
           )}
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="space-y-3">
+          {filtered.map((c) => {
+            const estado = estadoInfo(c.estado);
+            return (
+              <div
+                key={c.id}
+                onClick={() => navigate(`/casos/${c.id}`)}
+                className="flex items-center gap-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 px-5 py-4 hover:shadow-md transition-shadow cursor-pointer"
+              >
+                <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{c.titulo}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.color}`}>
+                      {estado.label}
+                    </span>
+                    {c.numero && <span className="text-xs text-gray-400 dark:text-gray-500">#{c.numero}</span>}
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                    {c.clientes.map((cl) => `${cl.cliente.nombre} ${cl.cliente.apellido}`).join(', ')}
+                    {c.juzgado ? ` · ${c.juzgado.nombre}` : ''}
+                  </p>
+                </div>
+                {canDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(c); }}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors shrink-0"
+                    title="Eliminar"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+                <svg className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
