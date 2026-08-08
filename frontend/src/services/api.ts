@@ -54,7 +54,7 @@ async function ensureFreshToken(currentToken: string): Promise<string> {
       })
       .then((r) => {
         const newToken = r.data.token;
-        sessionStorage.setItem('token', newToken);
+        localStorage.setItem('token', newToken);
         return newToken;
       })
       .catch(() => currentToken)
@@ -70,7 +70,7 @@ async function ensureFreshToken(currentToken: string): Promise<string> {
 // Request interceptor: attach JWT token, refresh if < 10 min remain
 api.interceptors.request.use(
   async (config) => {
-    const token = sessionStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (token) {
       const fresh = await ensureFreshToken(token);
       config.headers.Authorization = `Bearer ${fresh}`;
@@ -85,8 +85,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);

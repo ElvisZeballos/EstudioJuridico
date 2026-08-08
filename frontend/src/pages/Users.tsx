@@ -325,7 +325,7 @@ export function Users() {
             label="Rol"
             value={inviteForm.role}
             onChange={(e) => setInviteForm((p) => ({ ...p, role: e.target.value as Role }))}
-            options={ROLE_OPTIONS as { value: string; label: string }[]}
+            options={ROLE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           />
         </form>
       </Modal>
@@ -383,7 +383,7 @@ export function Users() {
               label="Rol"
               value={form.role ?? 'CLIENTE'}
               onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as Role }))}
-              options={ROLE_OPTIONS as { value: string; label: string }[]}
+              options={ROLE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
             />
             <Input
               label={editingUser ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña'}

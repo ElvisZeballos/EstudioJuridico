@@ -9,7 +9,6 @@ import type { Client, User, ClientFormData } from '../types';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import {
-  PHONE_COUNTRIES,
   DEFAULT_PHONE_COUNTRY, OTHER_COUNTRY_VALUE, splitPhone, joinPhone, sanitizePhoneLocal, sanitizeCustomCode, isValidPhoneLocal
 } from '../utils/phoneCountries';
 import { PhoneCountrySelect } from '../components/ui/PhoneCountrySelect';

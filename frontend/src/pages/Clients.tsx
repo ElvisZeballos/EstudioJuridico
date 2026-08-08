@@ -8,8 +8,7 @@ import { Input, Textarea, Select } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import type { Client, User, ClientFormData } from '../types';
 import axios from 'axios';
-import {
-  PHONE_COUNTRIES, DEFAULT_PHONE_COUNTRY, OTHER_COUNTRY_VALUE, joinPhone, sanitizePhoneLocal, sanitizeCustomCode, isValidPhoneLocal
+import { DEFAULT_PHONE_COUNTRY, OTHER_COUNTRY_VALUE, joinPhone, sanitizePhoneLocal, sanitizeCustomCode, isValidPhoneLocal
 } from '../utils/phoneCountries';
 import { PhoneCountrySelect } from '../components/ui/PhoneCountrySelect';
 

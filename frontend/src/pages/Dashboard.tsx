@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { clientsApi, casoNovedadesApi, googleCalendarApi, adminApi, casosApi } from '../services/api';
 import { StatCard, Card } from '../components/ui/Card';
-import type { DashboardStats, CasoNovedad, AdminStats, User, Caso, CasoEstado } from '../types';
+import type { DashboardStats, CasoNovedad, AdminStats, User, Caso } from '../types';
 import { styles } from './Dashboard.styles';
 import { CASO_ESTADOS } from '../constants/caso';
 

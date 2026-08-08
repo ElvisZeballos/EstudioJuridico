@@ -121,7 +121,7 @@ async function main() {
     update: {},
     create: {
       userId: clienteUser.id,
-      notas: 'Cliente desde 2024. Caso de sucesión familiar.',
+      notas: encrypt('Cliente desde 2024. Caso de sucesión familiar.'),
       abogadoId: abogado.id,
     },
   });
@@ -146,7 +146,7 @@ async function main() {
     update: {},
     create: {
       userId: anaUser.id,
-      notas: 'Consulta laboral. En proceso.',
+      notas: encrypt('Consulta laboral. En proceso.'),
       abogadoId: abogado.id,
     },
   });

@@ -16,22 +16,22 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    const saved = sessionStorage.getItem('user');
+    const saved = localStorage.getItem('user');
     return saved ? (JSON.parse(saved) as User) : null;
   });
-  const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(() => {
     setUser(null);
     setToken(null);
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
   }, []);
 
   // Validate token on mount
   useEffect(() => {
-    const storedToken = sessionStorage.getItem('token');
+    const storedToken = localStorage.getItem('token');
     if (!storedToken) {
       setIsLoading(false);
       return;
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .getMe()
       .then((userData) => {
         setUser(userData);
-        sessionStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('user', JSON.stringify(userData));
       })
       .catch(() => {
         logout();
@@ -51,17 +51,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, [logout]);
 
+  // Sincroniza la sesión entre pestañas/ventanas del mismo navegador:
+  // si otra pestaña hace login o logout, esta pestaña se entera al instante.
+  useEffect(() => {
+    function handleStorageChange(e: StorageEvent) {
+      if (e.key !== 'token' && e.key !== 'user') return;
+
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+
+      if (!storedToken || !storedUser) {
+        setUser(null);
+        setToken(null);
+        return;
+      }
+
+      setToken(storedToken);
+      setUser(JSON.parse(storedUser) as User);
+    }
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const login = async (data: LoginFormData): Promise<void> => {
     const response = await authApi.login(data);
     setToken(response.token);
     setUser(response.user);
-    sessionStorage.setItem('token', response.token);
-    sessionStorage.setItem('user', JSON.stringify(response.user));
+    localStorage.setItem('token', response.token);
+    localStorage.setItem('user', JSON.stringify(response.user));
   };
 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
-    sessionStorage.setItem('user', JSON.stringify(updatedUser));
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   return (
