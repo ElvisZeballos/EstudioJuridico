@@ -48,3 +48,15 @@ export const ESTADO_LABELS: Record<CasoEstado, string> = Object.fromEntries(
 export function estadoInfo(estado: CasoEstado) {
   return CASO_ESTADOS.find((e) => e.value === estado) ?? CASO_ESTADOS[0];
 }
+
+// Calcula el estado real de un caso: si tiene fecha de cierre y ya pasó,
+// se muestra como "Concluido" aunque el campo guardado diga otra cosa —
+// excepto si ya está "Archivado" (esa es siempre decisión manual del abogado).
+export function getEstadoEfectivo(estado: CasoEstado, fechaCierre?: string | Date | null): CasoEstado {
+  if (estado === 'ARCHIVADO' || !fechaCierre) return estado;
+
+  const cierreStr = new Date(fechaCierre).toLocaleDateString('en-CA', { timeZone: 'UTC' });
+  const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' });
+
+  return cierreStr <= hoyStr ? 'CONCLUIDO' : estado;
+}

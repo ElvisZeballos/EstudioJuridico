@@ -6,7 +6,7 @@ import { Modal, ConfirmModal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import { useFormState } from '../hooks/useFormState';
-import { estadoInfo, CASO_ESTADOS } from '../constants/caso';
+import { estadoInfo, CASO_ESTADOS, getEstadoEfectivo } from '../constants/caso';
 import { toggleId } from '../utils/format';
 import { ClienteMultiSelect } from '../components/ClienteMultiSelect';
 import { ViewSwitcher } from '../components/ui/ViewSwitcher';
@@ -204,7 +204,7 @@ export function Casos() {
       ) : viewMode === 'list' ? (
         <div className="space-y-3">
           {filtered.map((c) => {
-            const estado = estadoInfo(c.estado);
+            const estado = estadoInfo(getEstadoEfectivo(c.estado, c.fechaCierre));
             return (
               <div
                 key={c.id}
@@ -250,7 +250,7 @@ export function Casos() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => {
-            const estado = estadoInfo(c.estado);
+            const estado = estadoInfo(getEstadoEfectivo(c.estado, c.fechaCierre));
             return (
               <div
                 key={c.id}

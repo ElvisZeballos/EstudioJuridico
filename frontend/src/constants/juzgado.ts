@@ -3,7 +3,6 @@ export const JUZGADO_TIPOS = [
   'Penal',
   'Laboral',
   'Familiar',
-  'Mercantil',
   'Administrativo',
   'Otro',
 ];
@@ -13,7 +12,6 @@ const TIPO_KEYWORDS: { keywords: string[]; tipo: string }[] = [
   { keywords: ['penal', 'criminal', 'crimen'], tipo: 'Penal' },
   { keywords: ['laboral', 'trabajo', 'obrero'], tipo: 'Laboral' },
   { keywords: ['familiar', 'familia', 'niñez', 'adolescencia', 'menores'], tipo: 'Familiar' },
-  { keywords: ['mercantil'], tipo: 'Mercantil' },
   { keywords: ['administrativo', 'contencioso'], tipo: 'Administrativo' },
 ];
 

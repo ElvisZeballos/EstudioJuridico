@@ -1,6 +1,7 @@
 import { logger } from '../../config/logger';
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '../../infrastructure/googleCalendar';
 import * as novedadesRepository from './novedades.repository';
+import { getEstadoEfectivo } from '../../shared/casoEstado';
 
 /**
  * Convierte un string "AAAA-MM-DDTHH:mm" (sin zona horaria, del input datetime-local)
@@ -92,6 +93,14 @@ export async function create(
 
   if (role === 'ABOGADO' && !caso.abogados.some((a) => a.abogadoId === userId)) {
     return { error: 'Caso no encontrado o acceso denegado', status: 404 as const };
+  }
+
+  const estadoEfectivo = getEstadoEfectivo(caso.estado, caso.fechaCierre);
+  if (estadoEfectivo === 'CONCLUIDO' || estadoEfectivo === 'ARCHIVADO') {
+    return { error: 'No se pueden agregar novedades a un caso concluido o archivado.', status: 400 as const };
+  }
+  if (caso.fechaCierre && fecha > caso.fechaCierre.toISOString().slice(0, 10)) {
+    return { error: 'No se pueden agregar novedades posteriores a la fecha de cierre del caso.', status: 400 as const };
   }
 
   const novedad = await novedadesRepository.create({

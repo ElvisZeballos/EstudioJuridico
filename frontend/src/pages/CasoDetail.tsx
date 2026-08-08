@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Modal, ConfirmModal } from '../components/ui/Modal';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import { ESTADO_COLORS, ESTADO_LABELS, CASO_ESTADOS } from '../constants/caso';
+import { ESTADO_COLORS, ESTADO_LABELS, CASO_ESTADOS, getEstadoEfectivo } from '../constants/caso';
 import { toggleId } from '../utils/format';
 import { ClienteMultiSelect } from '../components/ClienteMultiSelect';
 import type { Caso, CasoEstado, CasoFormData, CasoHistorialEntry, CasoNovedad, CasoNovedadFormData, DriveArchivo, User, Client, Juzgado } from '../types';
@@ -137,8 +137,6 @@ export function CasoDetail() {
     try {
       await casosApi.update(caso.id, {
         ...form,
-        fechaInicio: form.fechaInicio || undefined,
-        fechaCierre: form.fechaCierre || undefined,
         juzgadoId: form.juzgadoId || undefined,
       });
       setShowEdit(false);
@@ -264,6 +262,9 @@ export function CasoDetail() {
     );
   }
 
+  const estadoEfectivo = getEstadoEfectivo(caso.estado, caso.fechaCierre);
+  const casoBloqueado = estadoEfectivo === 'CONCLUIDO' || estadoEfectivo === 'ARCHIVADO';
+
   return (
     <div className="space-y-6">
       {/* Header — full width */}
@@ -321,8 +322,8 @@ export function CasoDetail() {
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{caso.descripcion}</p>
                 )}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${ESTADO_COLORS[caso.estado]}`}>
-                    {ESTADO_LABELS[caso.estado]}
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${ESTADO_COLORS[estadoEfectivo]}`}>
+                    {ESTADO_LABELS[estadoEfectivo]}
                   </span>
                   {caso.numero && (
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
@@ -653,7 +654,13 @@ export function CasoDetail() {
               {canEdit && (
                 <button
                   onClick={openCreateNovedad}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+                  disabled={casoBloqueado}
+                  title={casoBloqueado ? 'No se pueden agregar novedades a un caso concluido o archivado.' : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
+                    casoBloqueado
+                      ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                  }`}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -674,7 +681,7 @@ export function CasoDetail() {
                   <p className="text-sm font-medium text-gray-900 dark:text-white">Sin novedades</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Registrá audiencias, edictos, diligencias y más.</p>
                 </div>
-                {canEdit && (
+                {canEdit && !casoBloqueado && (
                   <button onClick={openCreateNovedad} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
                     Agregar la primera novedad
                   </button>
