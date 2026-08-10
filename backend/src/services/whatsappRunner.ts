@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import {
   getAccumulatedMessages,
+  deleteAccumulatedMessages,
   startWhatsAppSession,
   waitForConnected,
   softDisconnectSession,
@@ -17,7 +18,7 @@ import { logger } from '../config/logger';
 import prisma from '../shared/prisma';
 
 const LOOK_BACK_MS = 24 * 60 * 60 * 1000;
-const MESSAGE_SETTLE_MS = 15_000; // wait after connect for WhatsApp to push delta
+const MESSAGE_SETTLE_MS = 45_000; // wait after connect for WhatsApp to push delta — TEMPORAL, subido para diagnóstico
 
 const NOTIFICATION_KEYWORDS = ['juzgado', 'jusgado', 'notificaci', 'tribunal'];
 
@@ -67,6 +68,13 @@ interface RunOutput {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function buildRunDir(): string {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-'); // HH-MM-SS
+  return path.join(process.cwd(), 'temp', `whatsapp_${dateStr}_${timeStr}`);
+}
 
 function sanitize(name: string): string {
   return name.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\- ]/g, '_').trim().slice(0, 30);
@@ -338,6 +346,15 @@ async function extractForUser(
     `(${totalMensajes} msgs, ${Object.keys(conversations).length} conversaciones)`
   );
 
+  // Solo se borran los mensajes ya volcados a messages.json — recién ahora que
+  // están a salvo en disco. Cualquier mensaje que llegue después de este punto
+  // queda intacto en la base para la próxima corrida.
+  const usedIds = recent.map((m) => m.key?.id).filter((id): id is string => !!id);
+  await deleteAccumulatedMessages(userId, usedIds);
+  if (usedIds.length > 0) {
+    logger.info(`Runner: ${nombre} ${apellido} — ${usedIds.length} mensajes usados eliminados de la DB`);
+  }
+
   return userDir;
 }
 
@@ -355,18 +372,12 @@ export async function runExtractionForUser(userId: string): Promise<void> {
   if (!session.user.active) throw new Error(`Usuario ${userId} inactivo`);
 
   const { nombre, apellido } = session.user;
-  const dateStr = new Date().toISOString().split('T')[0];
-  const runDir = path.join(process.cwd(), 'temp', `whatsapp_${dateStr}`);
+  const runDir = buildRunDir();
   fs.mkdirSync(runDir, { recursive: true });
 
   logger.info(`Runner manual: iniciando extracción para ${nombre} ${apellido}`);
 
   try {
-    const { count: deleted } = await prisma.whatsAppMessage.deleteMany({ where: { userId } });
-    if (deleted > 0) {
-      logger.info(`Runner manual: ${deleted} mensajes previos eliminados para ${nombre} ${apellido}`);
-    }
-
     await startWhatsAppSession(userId);
 
     const connected = await waitForConnected(userId, 60_000);
@@ -395,8 +406,7 @@ export async function runExtractionForUser(userId: string): Promise<void> {
 // ─── Main runner ──────────────────────────────────────────────────────────────
 
 export async function runWhatsAppExtraction(): Promise<void> {
-  const dateStr = new Date().toISOString().split('T')[0];
-  const runDir = path.join(process.cwd(), 'temp', `whatsapp_${dateStr}`);
+  const runDir = buildRunDir();
   fs.mkdirSync(runDir, { recursive: true });
 
   logger.info(`Runner WhatsApp iniciado — carpeta: ${runDir}`);
@@ -420,13 +430,7 @@ export async function runWhatsAppExtraction(): Promise<void> {
     logger.info(`Runner: [${i + 1}/${abogados.length}] procesando ${user.nombre} ${user.apellido}`);
 
     try {
-      // 1. Limpiar mensajes previos antes de conectar
-      const { count: deleted } = await prisma.whatsAppMessage.deleteMany({ where: { userId: user.id } });
-      if (deleted > 0) {
-        logger.info(`Runner: ${deleted} mensajes previos eliminados para ${user.nombre} ${user.apellido}`);
-      }
-
-      // 2. Conectar
+      // 1. Conectar
       await startWhatsAppSession(user.id);
 
       // 2. Esperar conexión (hasta 60 s)

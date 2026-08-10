@@ -29,6 +29,8 @@ interface NotifOutput {
   conversaciones: Record<string, Conversation>;
 }
 
+const MAX_IMAGES_PER_REQUEST = 2;
+
 export interface GroqAnalysis {
   nurej: string | null;
   fecha: string | null;
@@ -45,13 +47,15 @@ export interface GroqAnalysis {
 
 const PROMPT = `Eres un asistente legal especializado en Bolivia. Analiza los mensajes y documentos adjuntos de una conversación de WhatsApp que contiene una notificación judicial.
 
+IMPORTANTE: no sabés qué rol cumple el cliente del estudio jurídico en este proceso (podría ser demandante, demandado, o un tercero). Nunca asumas ni des a entender de qué lado está — describí los hechos del documento de forma neutral y objetiva en todos los campos.
+
 Devuelve ÚNICAMENTE un objeto JSON válido con exactamente esta estructura:
 
 {
   "nurej": "NUREJ o número de expediente si aparece en el documento, o null",
   "fecha": "fecha de audiencia o plazo límite en formato YYYY-MM-DD, o null si no hay",
   "resumenAbogado": "resumen técnico-legal: tipo de acto procesal, juzgado, partes involucradas, plazos legales y acciones que debe tomar el abogado",
-  "resumenCliente": "mensaje amigable para el cliente. SIEMPRE empieza con un saludo cordial usando su nombre si está disponible. Explica en términos simples qué recibió, qué significa y qué debe saber o hacer",
+  "resumenCliente": "mensaje para el cliente, en 3 partes: (1) empieza EXACTAMENTE con el texto Buenas tardes {{NOMBRE_CLIENTE}}, seguido de una coma (el nombre será reemplazado luego por el real) — nunca uses un nombre propio visto en la conversación de WhatsApp, no sabés quién es el cliente real; (2) un resumen breve y NEUTRAL de qué trata el documento, en tercera persona, narrando los hechos tal como aparecen (ej: 'se ha recibido un documento del Juzgado X donde [parte A] solicita/argumenta [...] respecto a [parte B]') — nunca asumas ni des a entender de qué lado está el cliente, ni lo trates como acusado, deudor o demandante; simplemente contá qué dice el documento, como lo haría un tercero neutral informando; (3) SIEMPRE cierra pidiendo que se comunique con su abogado a la brevedad posible para definir los siguientes pasos",
   "resumenGeneral": "resumen general del documento en 2 o 3 oraciones",
   "juzgado": "nombre completo del juzgado tal como aparece en el documento, o null",
   "tipoDocumento": "uno de: memorial, audiencia, resolución, auto, cédula de notificación, edicto, sentencia, otro"
@@ -92,13 +96,15 @@ async function extractPdfText(filePath: string): Promise<string | null> {
   }
 }
 
-async function convertPdfToImages(filePath: string): Promise<Buffer[]> {
+async function convertPdfToImages(filePath: string, maxPages: number): Promise<Buffer[]> {
+  if (maxPages <= 0) return [];
   try {
     const { pdf } = await import('pdf-to-img');
-    const doc = await pdf(filePath, { scale: 2 });
+    const doc = await pdf(filePath, { scale: 1 });
     const images: Buffer[] = [];
     for await (const page of doc) {
       images.push(Buffer.from(page));
+      if (images.length >= maxPages) break;
     }
     return images;
   } catch (err) {
@@ -129,6 +135,13 @@ export async function analyzeNotificationsWithGroq(userDir: string): Promise<voi
   for (let i = 0; i < conversations.length; i++) {
     const conv = conversations[i];
     const key = `respuesta_${i + 1}`;
+
+    // Espaciar las solicitudes para no acumular tokens dentro del mismo minuto
+    // (límite de Groq: 8000 TPM) — no aplica antes de la primera notificación.
+    if (i > 0) {
+      await new Promise((r) => setTimeout(r, 20_000));
+    }
+
     logger.info(`Groq: [${i + 1}/${conversations.length}] analizando conversación con ${conv.nombre}`);
 
     const mediaFiles = conv.mensajes
@@ -148,26 +161,33 @@ export async function analyzeNotificationsWithGroq(userDir: string): Promise<voi
         contentParts.push({ type: 'text', text: `\nMensajes de texto:\n${textLines}` });
       }
 
+      let imageCount = 0;
+
       for (const msg of conv.mensajes) {
         if (msg.tipo === 'imagen' && msg.archivo) {
           const filePath = path.join(userDir, msg.archivo);
-          if (fs.existsSync(filePath)) {
+          if (fs.existsSync(filePath) && imageCount < MAX_IMAGES_PER_REQUEST) {
             const base64 = fs.readFileSync(filePath).toString('base64');
             contentParts.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}` } });
             if (msg.caption) {
               contentParts.push({ type: 'text', text: `Descripción de la imagen: ${msg.caption}` });
             }
+            imageCount++;
+          } else if (fs.existsSync(filePath)) {
+            contentParts.push({ type: 'text', text: '\n[Imagen adicional omitida por límite del modelo]' });
           }
         }
 
         if (msg.tipo === 'documento_pdf' && msg.archivo) {
           const filePath = path.join(userDir, msg.archivo);
           if (fs.existsSync(filePath)) {
-            const pdfImages = await convertPdfToImages(filePath);
+            const remaining = MAX_IMAGES_PER_REQUEST - imageCount;
+            const pdfImages = await convertPdfToImages(filePath, remaining);
             if (pdfImages.length > 0) {
               contentParts.push({ type: 'text', text: `\nDocumento PDF (${pdfImages.length} página(s)):` });
               for (const imgBuf of pdfImages) {
                 contentParts.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${imgBuf.toString('base64')}` } });
+                imageCount++;
               }
             } else {
               const text = await extractPdfText(filePath);
@@ -183,10 +203,12 @@ export async function analyzeNotificationsWithGroq(userDir: string): Promise<voi
       }
 
       const response = await groq.chat.completions.create({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'qwen/qwen3.6-27b',
         messages: [{ role: 'user', content: contentParts }],
         response_format: { type: 'json_object' },
         temperature: 0.1,
+        reasoning_effort: 'none',
+        max_completion_tokens: 2048,
       });
 
       const raw = response.choices[0]?.message?.content ?? '';

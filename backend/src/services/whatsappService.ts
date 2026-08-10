@@ -71,6 +71,18 @@ export async function getAccumulatedMessages(userId: string): Promise<proto.IWeb
   );
 }
 
+/**
+ * Borra únicamente los mensajes ya usados con éxito en una extracción,
+ * identificados por su messageId real de WhatsApp — nunca borra en bloque
+ * por fecha, así un mensaje que llega mientras el proceso corre no se pierde.
+ */
+export async function deleteAccumulatedMessages(userId: string, messageIds: string[]): Promise<void> {
+  if (messageIds.length === 0) return;
+  await (prisma as any).whatsAppMessage.deleteMany({
+    where: { userId, messageId: { in: messageIds } },
+  });
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export async function buildAuthState(userId: string) {
@@ -181,6 +193,13 @@ export async function startWhatsAppSession(userId: string): Promise<void> {
       persistMessages(userId, msgs).catch((err) =>
         logger.error(`WhatsApp: error guardando mensajes de ${userId}: ${(err as Error).message}`)
       );
+    }
+  });
+  socket.ev.on('messages.update', (updates) => {
+    for (const u of updates) {
+      if (u.update.status !== undefined) {
+        logger.info(`WhatsApp: estado de entrega — mensaje ${u.key.id} para ${u.key.remoteJid} → status ${u.update.status}`);
+      }
     }
   });
 
@@ -305,7 +324,22 @@ export async function sendWhatsAppMessage(userId: string, toPhone: string, text:
     throw new Error(`No hay sesión activa de WhatsApp para ${userId}`);
   }
   const jid = `${toPhone.replace(/\D/g, '')}@s.whatsapp.net`;
-  await session.socket.sendMessage(jid, { text });
+
+  const checkResults = await session.socket.onWhatsApp(jid);
+  const result = checkResults?.[0];
+  if (!result?.exists) {
+    throw new Error(`El número ${toPhone} no está registrado en WhatsApp — no se puede enviar el mensaje`);
+  }
+
+  // Reintento simple: WhatsApp a veces reporta status ERROR de forma transitoria
+  // (librería no oficial, sin garantías) — un segundo intento puede tener éxito.
+  try {
+    await session.socket.sendMessage(result.jid, { text });
+  } catch (err) {
+    logger.warn(`WhatsApp: primer intento falló para ${toPhone}, reintentando — ${(err as Error).message}`);
+    await new Promise((r) => setTimeout(r, 3000));
+    await session.socket.sendMessage(result.jid, { text });
+  }
 }
 
 export async function disconnectWhatsApp(userId: string): Promise<void> {

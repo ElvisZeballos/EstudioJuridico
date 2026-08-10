@@ -160,9 +160,14 @@ export async function processGroqResults(userDir: string, userId: string): Promi
             logger.warn(`Processor: teléfono inválido para ${cc.cliente.user.nombre} — "${raw}"`);
             continue;
           }
+          const mensajePersonalizado = resp.resumenCliente.replace(
+            '{{NOMBRE_CLIENTE}}',
+            cc.cliente.user.nombre
+          );
           try {
-            await sendWhatsAppMessage(userId, phone, resp.resumenCliente);
+            await sendWhatsAppMessage(userId, phone, mensajePersonalizado);
             logger.info(`Processor: WhatsApp enviado a ${cc.cliente.user.nombre} ${cc.cliente.user.apellido}`);
+            await new Promise((r) => setTimeout(r, 5000)); // margen para que WhatsApp confirme la entrega antes de cerrar la sesión
           } catch (err) {
             logger.warn(
               `Processor: WhatsApp falló para ${cc.cliente.user.nombre} — ${(err as Error).message}`
