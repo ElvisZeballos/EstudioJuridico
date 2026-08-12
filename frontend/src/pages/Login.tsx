@@ -31,7 +31,9 @@ export function Login() {
       await login({ email, password });
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.error || 'Credenciales incorrectas.');
+        const backendMsg = err.response?.data?.error;
+        const isKnownGenericError = backendMsg === 'Invalid credentials';
+        setError(isKnownGenericError || !backendMsg ? 'Credenciales incorrectas.' : backendMsg);
       } else {
         setError('Error de conexión. Intente nuevamente.');
       }
