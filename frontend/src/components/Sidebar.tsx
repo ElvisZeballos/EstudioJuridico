@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../services/api';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -160,7 +161,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center overflow-hidden shrink-0">
                 {user.photoPath ? (
                   <img
-                    src={`http://localhost:3001${user.photoPath}`}
+                    src={`${API_BASE}${user.photoPath}`}
                     alt={user.nombre}
                     className="w-full h-full object-cover"
                   />

@@ -1,6 +1,6 @@
 import { useState, useRef, ChangeEvent, FormEvent, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { usersApi, whatsappApi, googleCalendarApi } from '../services/api';
+import { usersApi, whatsappApi, googleCalendarApi, API_BASE } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -53,7 +53,7 @@ export function Profile() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [photoPreview, setPhotoPreview] = useState<string | null>(
-    user?.photoPath ? `http://localhost:3001${user.photoPath}` : null
+    user?.photoPath ? `${API_BASE}${user.photoPath}` : null
   );
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
@@ -180,7 +180,7 @@ export function Profile() {
       } else {
         setError('Error al subir la foto.');
       }
-      setPhotoPreview(user.photoPath ? `http://localhost:3001${user.photoPath}` : null);
+      setPhotoPreview(user.photoPath ? `${API_BASE}${user.photoPath}` : null);
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -637,7 +637,7 @@ export function Profile() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center shrink-0">
                       {aux.photoPath ? (
-                        <img src={`http://localhost:3001${aux.photoPath}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        <img src={`${API_BASE}${aux.photoPath}`} alt="" className="w-8 h-8 rounded-full object-cover" />
                       ) : (
                         <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{aux.nombre[0]}{aux.apellido[0]}</span>
                       )}
@@ -676,7 +676,7 @@ export function Profile() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
                         {aux.photoPath ? (
-                          <img src={`http://localhost:3001${aux.photoPath}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+                          <img src={`${API_BASE}${aux.photoPath}`} alt="" className="w-8 h-8 rounded-full object-cover" />
                         ) : (
                           <span className="text-xs font-bold text-gray-400">{aux.nombre[0]}{aux.apellido[0]}</span>
                         )}
