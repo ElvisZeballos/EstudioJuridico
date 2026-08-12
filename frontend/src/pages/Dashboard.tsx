@@ -154,7 +154,7 @@ function AdminDashboard({ user, stats, loading }: { user: User; stats: AdminStat
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="bg-slate-800 dark:bg-slate-800 border-slate-700 dark:border-slate-700">
+            <Card className="!bg-slate-800 !border-slate-700">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-slate-300">
                   <IconServer />
@@ -179,7 +179,7 @@ function AdminDashboard({ user, stats, loading }: { user: User; stats: AdminStat
                 </div>
               </div>
             </Card>
-            <Card className="bg-slate-800 dark:bg-slate-800 border-slate-700 dark:border-slate-700">
+            <Card className="!bg-slate-800 !border-slate-700">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-slate-300">
                   <IconDatabase />
@@ -204,7 +204,7 @@ function AdminDashboard({ user, stats, loading }: { user: User; stats: AdminStat
                 </div>
               </div>
             </Card>
-            <Card className="bg-slate-800 dark:bg-slate-800 border-slate-700 dark:border-slate-700">
+            <Card className="!bg-slate-800 !border-slate-700">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-slate-300">
                   <IconDisk />
@@ -245,7 +245,7 @@ function AdminDashboard({ user, stats, loading }: { user: User; stats: AdminStat
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
           <h2 className={styles.sectionTitle}>Memoria del servidor</h2>
-          <Card className="bg-slate-800 dark:bg-slate-800 border-slate-700 dark:border-slate-700">
+          <Card className="!bg-slate-800 !border-slate-700">
             {loading ? (
               <div className="space-y-3">
                 {[1, 2].map((i) => <div key={i} className="h-6 bg-slate-700 rounded animate-pulse" />)}
