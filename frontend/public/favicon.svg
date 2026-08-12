@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="104" fill="#6366f1"/>
+  <g fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <!-- vertical post -->
+    <line x1="256" y1="120" x2="256" y2="392"/>
+    <!-- base -->
+    <line x1="176" y1="392" x2="336" y2="392"/>
+    <!-- top knob -->
+    <circle cx="256" cy="104" r="16" fill="#ffffff" stroke="none"/>
+    <!-- beam -->
+    <line x1="140" y1="160" x2="372" y2="160"/>
+    <!-- left arm -->
+    <line x1="140" y1="160" x2="96" y2="248"/>
+    <path d="M60 248 a44 40 0 0 0 72 0" />
+    <!-- right arm -->
+    <line x1="372" y1="160" x2="416" y2="248"/>
+    <path d="M380 248 a44 40 0 0 0 72 0" />
+  </g>
+</svg>

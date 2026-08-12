@@ -44,6 +44,7 @@ export function Casos() {
   const [juzgados, setJuzgados] = useState<Juzgado[]>([]);
 
   const canWrite = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
+  const maxFechaInicio = `${new Date().getFullYear()}-12-31`;
   const canDelete = user?.role === 'ADMIN';
   const showViewSwitcher = user?.role === 'ABOGADO' || user?.role === 'AUXILIAR';
   const { viewMode, setViewMode } = useViewMode('casos', showViewSwitcher);
@@ -384,6 +385,7 @@ export function Casos() {
               type="date"
               value={form.fechaInicio ?? ''}
               onChange={(e) => setForm((p) => ({ ...p, fechaInicio: e.target.value }))}
+              max={maxFechaInicio}
             />
             <Input
               label="Fecha de cierre"
