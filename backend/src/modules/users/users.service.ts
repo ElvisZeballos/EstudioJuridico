@@ -226,23 +226,23 @@ export async function sendPasswordReset(id: string, actorLog: object): Promise<S
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
-  try {
-    await sendEmail(
-      user.email,
-      'Restablecer contraseña - Estudio Jurídico',
-      `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-        <h2 style="color: #4f46e5;">Restablecer contraseña</h2>
-        <p>Hola <strong>${user.nombre}</strong>,</p>
-        <p>El administrador ha iniciado un restablecimiento de contraseña para tu cuenta.</p>
-        <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
-          Restablecer contraseña
-        </a>
-        <p style="color:#888;font-size:13px;">Este enlace expira en 1 hora.</p>
-      </div>`
-    );
-  } catch (emailErr) {
-    logger.warn('USUARIOS: no se pudo enviar email de restablecimiento (SMTP)', { ...actorLog, targetUserId: id, error: (emailErr as Error).message });
-  }
+  // Mismo criterio que en inviteUser: el token ya está guardado, así que el
+  // envío del correo no debe bloquear la respuesta al admin.
+  sendEmail(
+    user.email,
+    'Restablecer contraseña - Estudio Jurídico',
+    `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+      <h2 style="color: #4f46e5;">Restablecer contraseña</h2>
+      <p>Hola <strong>${user.nombre}</strong>,</p>
+      <p>El administrador ha iniciado un restablecimiento de contraseña para tu cuenta.</p>
+      <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+        Restablecer contraseña
+      </a>
+      <p style="color:#888;font-size:13px;">Este enlace expira en 1 hora.</p>
+    </div>`
+  ).catch((emailErr: Error) => {
+    logger.warn('USUARIOS: no se pudo enviar email de restablecimiento (SMTP)', { ...actorLog, targetUserId: id, error: emailErr.message });
+  });
 
   logger.info('USUARIOS: correo de restablecimiento enviado por admin', { ...actorLog, targetUserId: id, targetEmail: user.email });
   return {};
@@ -310,22 +310,25 @@ export async function inviteUser(
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const setupLink = `${frontendUrl}/reset-password?token=${token}`;
 
-  try {
-    await sendEmail(
-      email,
-      'Bienvenido al Estudio Jurídico — Configura tu cuenta',
-      `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-        <h2 style="color: #4f46e5;">Bienvenido al Estudio Jurídico</h2>
-        <p>Has sido invitado a acceder al sistema.</p>
-        <a href="${setupLink}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
-          Configurar contraseña
-        </a>
-        <p style="color:#888;font-size:13px;">Este enlace expira en 7 días.</p>
-      </div>`
-    );
-  } catch (emailErr) {
-    logger.warn('USUARIOS: no se pudo enviar email de invitación (SMTP)', { ...actorLog, nuevoEmail: email, error: (emailErr as Error).message });
-  }
+  // No esperamos a que el email termine de enviarse: el usuario y el token ya
+  // quedaron guardados en la base de datos, que es lo que hace falta para que
+  // el sistema funcione. El envío se dispara en segundo plano — si Gmail tarda
+  // o falla, el admin ya tiene su respuesta y puede reenviar con la llavecita
+  // de "restablecer contraseña" sin haber tenido que esperar ni refrescar nada.
+  sendEmail(
+    email,
+    'Bienvenido al Estudio Jurídico — Configura tu cuenta',
+    `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+      <h2 style="color: #4f46e5;">Bienvenido al Estudio Jurídico</h2>
+      <p>Has sido invitado a acceder al sistema.</p>
+      <a href="${setupLink}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">
+        Configurar contraseña
+      </a>
+      <p style="color:#888;font-size:13px;">Este enlace expira en 7 días.</p>
+    </div>`
+  ).catch((emailErr: Error) => {
+    logger.warn('USUARIOS: no se pudo enviar email de invitación (SMTP)', { ...actorLog, nuevoEmail: email, error: emailErr.message });
+  });
 
   logger.info('USUARIOS: invitación creada', { ...actorLog, nuevoUserId: user.id, nuevoEmail: email, nuevoRol: assignedRole });
   return { user: decryptUser(user) };

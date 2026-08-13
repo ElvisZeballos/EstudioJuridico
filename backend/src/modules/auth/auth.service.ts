@@ -99,7 +99,10 @@ export async function forgotPassword(email: string, ip: string | undefined) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
-  await sendEmail(
+  // No se espera el envío del email antes de responder: este endpoint es
+  // público (lo puede llamar cualquiera desde "Olvidé mi contraseña"), así
+  // que si el envío se demora o falla no debe colgar la respuesta al usuario.
+  sendEmail(
     user.email,
     'Restablecer contraseña - Estudio Jurídico',
     `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
@@ -111,7 +114,9 @@ export async function forgotPassword(email: string, ip: string | undefined) {
       </a>
       <p style="color:#888;font-size:13px;">Este enlace expira en 1 hora. Si no solicitaste esto, ignora este correo.</p>
     </div>`
-  );
+  ).catch((emailErr: Error) => {
+    logger.warn('FORGOT-PASSWORD: no se pudo enviar email (SMTP)', { email, userId: user.id, ip, error: emailErr.message });
+  });
 
   logger.info('FORGOT-PASSWORD: correo enviado', { email, userId: user.id, ip, expiresAt });
   return {};
