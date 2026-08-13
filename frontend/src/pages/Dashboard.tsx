@@ -210,7 +210,7 @@ function AdminDashboard({ user, stats, loading }: { user: User; stats: AdminStat
                   <IconDisk />
                   <span className="text-xs font-semibold uppercase tracking-wider">Almacenamiento</span>
                 </div>
-                <StatusDot ok={stats?.storage.diskAvailableGB === null || (stats?.storage.diskAvailableGB ?? 1) > 0.5} />
+                <StatusDot ok={stats?.storage.diskAvailableGB === null || (stats?.storage.diskAvailableGB ?? 1) / (stats?.storage.diskTotalGB ?? 1) > 0.15} />
               </div>
               <div className="space-y-2 text-sm">
                 {stats?.storage.diskTotalGB !== null ? (
