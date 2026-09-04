@@ -31,6 +31,7 @@ export function Juzgados() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Juzgado | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Juzgado | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
   const {
     form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit,
@@ -100,13 +101,15 @@ export function Juzgados() {
     });
   }
 
-  async function handleDelete(j: Juzgado) {
+    async function handleDelete(j: Juzgado) {
+    setDeleteError('');
     try {
       await juzgadosApi.delete(j.id);
       setDeleteConfirm(null);
       load();
-    } catch {
-      // silent
+    } catch (err: any) {
+      setDeleteConfirm(null);
+      setDeleteError(err.response?.data?.error || 'No se pudo eliminar el juzgado.');
     }
   }
 
@@ -129,7 +132,16 @@ export function Juzgados() {
             Nuevo juzgado
           </Button>
         )}
-      </div>
+            </div>
+
+      {deleteError && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
+          <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          {deleteError}
+        </div>
+      )}
 
       {/* Búsqueda y filtro */}
       <div className="flex flex-col sm:flex-row gap-3">

@@ -68,6 +68,15 @@ export async function deactivate(id: string, actorLog: object) {
     return { error: 'Juzgado not found', status: 404 as const };
   }
 
+  const casosVinculados = await juzgadosRepository.countCasos(id);
+  if (casosVinculados > 0) {
+    logger.warn('JUZGADOS: eliminación bloqueada, tiene casos vinculados', { ...actorLog, juzgadoId: id, casosVinculados });
+    return {
+      error: `No se puede eliminar: hay ${casosVinculados} caso${casosVinculados !== 1 ? 's' : ''} vinculado${casosVinculados !== 1 ? 's' : ''} a este juzgado.`,
+      status: 409 as const,
+    };
+  }
+
   await juzgadosRepository.deactivate(id);
   logger.info('JUZGADOS: eliminado', { ...actorLog, juzgadoId: id, nombre: existing.nombre });
   return {};

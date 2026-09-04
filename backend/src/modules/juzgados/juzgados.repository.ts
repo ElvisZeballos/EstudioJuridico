@@ -19,6 +19,10 @@ export async function update(id: string, data: Record<string, unknown>) {
   return prisma.juzgado.update({ where: { id }, data });
 }
 
+export async function countCasos(id: string) {
+  return prisma.caso.count({ where: { juzgadoId: id } });
+}
+
 export async function deactivate(id: string) {
   return prisma.juzgado.update({ where: { id }, data: { active: false } });
 }

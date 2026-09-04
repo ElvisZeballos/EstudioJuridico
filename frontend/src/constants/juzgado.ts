@@ -4,10 +4,17 @@ export const JUZGADO_TIPOS = [
   'Laboral',
   'Familiar',
   'Administrativo',
+  'Mixto',
+  'Agroambiental',
   'Otro',
 ];
 
 const TIPO_KEYWORDS: { keywords: string[]; tipo: string }[] = [
+  // 'Mixto' y 'Agroambiental' van primero: un juzgado "Mixto Civil y Comercial..."
+  // contiene la palabra 'civil', así que si esos dos chequeos no van antes,
+  // el juzgado quedaría mal clasificado como 'Civil' a secas.
+  { keywords: ['mixto'], tipo: 'Mixto' },
+  { keywords: ['agroambiental'], tipo: 'Agroambiental' },
   { keywords: ['civil', 'comercial'], tipo: 'Civil' },
   { keywords: ['penal', 'criminal', 'crimen'], tipo: 'Penal' },
   { keywords: ['laboral', 'trabajo', 'obrero'], tipo: 'Laboral' },
