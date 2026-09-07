@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Modal, ConfirmModal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/Input';
+import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { useFormState } from '../hooks/useFormState';
 import { estadoInfo, CASO_ESTADOS, getEstadoEfectivo } from '../constants/caso';
 import { toggleId } from '../utils/format';
@@ -374,10 +375,10 @@ export function Casos() {
               onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value as CasoEstado }))}
               options={ESTADO_OPTIONS}
             />
-            <Select
+            <SearchableSelect
               label="Juzgado"
               value={form.juzgadoId ?? ''}
-              onChange={(e) => setForm((p) => ({ ...p, juzgadoId: e.target.value }))}
+              onChange={(juzgadoId) => setForm((p) => ({ ...p, juzgadoId }))}
               options={juzgadoOptions}
             />
             <Input

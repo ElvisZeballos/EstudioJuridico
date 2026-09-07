@@ -9,6 +9,7 @@ import { useFormState } from '../hooks/useFormState';
 import { useAuth } from '../context/AuthContext';
 import { ViewSwitcher } from '../components/ui/ViewSwitcher';
 import { useViewMode } from '../hooks/useViewMode';
+import { matchesAllTerms } from '../utils/search';
 import { isValidUrl } from '../utils/validators';
 
 const emptyForm: JuzgadoFormData = {
@@ -38,17 +39,12 @@ export function Juzgados() {
     form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit,
   } = useFormState<JuzgadoFormData>(emptyForm);
 
-  const filtered = useMemo(
+    const filtered = useMemo(
     () =>
       juzgados.filter((j) => {
         if (tipoFilter && j.tipo !== tipoFilter) return false;
-        const q = searchTerm.toLowerCase();
-        if (!q) return true;
-        return (
-          j.nombre.toLowerCase().includes(q) ||
-          (j.ciudad && j.ciudad.toLowerCase().includes(q)) ||
-          (j.direccion && j.direccion.toLowerCase().includes(q))
-        );
+        const haystack = `${j.nombre} ${j.ciudad ?? ''} ${j.direccion ?? ''}`;
+        return matchesAllTerms(haystack, searchTerm);
       }),
     [juzgados, searchTerm, tipoFilter],
   );

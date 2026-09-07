@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { ESTADO_COLORS, ESTADO_LABELS, CASO_ESTADOS, getEstadoEfectivo } from '../constants/caso';
 import { toggleId } from '../utils/format';
 import { ClienteMultiSelect } from '../components/ClienteMultiSelect';
+import { SearchableSelect } from '../components/ui/SearchableSelect';
 import type { Caso, CasoEstado, CasoFormData, CasoHistorialEntry, CasoNovedad, CasoNovedadFormData, DriveArchivo, User, Client, Juzgado } from '../types';
 
 
@@ -909,10 +910,10 @@ export function CasoDetail() {
               onChange={(e) => setForm({ ...form, estado: e.target.value as CasoEstado })}
               options={ESTADO_OPTIONS}
             />
-            <Select
+            <SearchableSelect
               label="Juzgado"
-              value={form.juzgadoId}
-              onChange={(e) => setForm({ ...form, juzgadoId: e.target.value })}
+              value={form.juzgadoId ?? ''}
+              onChange={(juzgadoId) => setForm({ ...form, juzgadoId })}
               options={[
                 { value: '', label: 'Sin juzgado asignado' },
                 ...juzgados.map((j) => ({ value: j.id, label: `${j.nombre}${j.ciudad ? ` — ${j.ciudad}` : ''}` })),
