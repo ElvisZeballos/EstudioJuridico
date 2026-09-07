@@ -15,7 +15,7 @@ export async function getById(id: string, actorLog: object) {
 }
 
 export async function create(
-  data: { nombre: string; tipo?: string; direccion?: string; ciudad?: string; telefono?: string; notas?: string },
+  data: { nombre: string; tipo?: string; direccion?: string; ciudad?: string; telefono?: string; mapsUrl?: string; notas?: string },
   actorLog: object
 ) {
   if (!data.nombre) {
@@ -29,6 +29,7 @@ export async function create(
     direccion: data.direccion || null,
     ciudad: data.ciudad || null,
     telefono: data.telefono || null,
+    mapsUrl: data.mapsUrl || null,
     notas: data.notas || null,
   });
 
@@ -38,7 +39,7 @@ export async function create(
 
 export async function update(
   id: string,
-  data: { nombre?: string; tipo?: string; direccion?: string; ciudad?: string; telefono?: string; notas?: string },
+  data: { nombre?: string; tipo?: string; direccion?: string; ciudad?: string; telefono?: string; mapsUrl?: string; notas?: string },
   actorLog: object
 ) {
   const existing = await juzgadosRepository.findById(id);
@@ -53,6 +54,7 @@ export async function update(
     ...(data.direccion !== undefined && { direccion: data.direccion }),
     ...(data.ciudad !== undefined && { ciudad: data.ciudad }),
     ...(data.telefono !== undefined && { telefono: data.telefono }),
+    ...(data.mapsUrl !== undefined && { mapsUrl: data.mapsUrl }),
     ...(data.notas !== undefined && { notas: data.notas }),
   };
 

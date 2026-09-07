@@ -11,7 +11,7 @@ import { ViewSwitcher } from '../components/ui/ViewSwitcher';
 import { useViewMode } from '../hooks/useViewMode';
 
 const emptyForm: JuzgadoFormData = {
-  nombre: '', tipo: '', direccion: '', ciudad: '', telefono: '', notas: '',
+  nombre: '', tipo: '', direccion: '', ciudad: '', telefono: '', mapsUrl: '', notas: '',
 };
 
 const TIPO_OPTIONS = [
@@ -72,12 +72,13 @@ export function Juzgados() {
 
   function openEdit(j: Juzgado) {
     setEditing(j);
-    reset({
+        reset({
       nombre: j.nombre,
       tipo: j.tipo || '',
       direccion: j.direccion || '',
       ciudad: j.ciudad || '',
       telefono: j.telefono || '',
+      mapsUrl: j.mapsUrl || '',
       notas: j.notas || '',
     });
     setShowModal(true);
@@ -203,9 +204,23 @@ export function Juzgados() {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
                   {j.ciudad}{j.direccion ? ` — ${j.direccion}` : ''}{j.telefono ? ` · ${j.telefono}` : ''}
                 </p>
+                {j.mapsUrl && (
+                  <a
+                    href={j.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Ver en Google Maps
+                  </a>
+                )}
               </div>
               {canWrite && (
                 <div className="flex gap-1 shrink-0">
@@ -270,7 +285,7 @@ export function Juzgados() {
               </div>
 
               <div className="space-y-1.5 text-sm text-gray-600 dark:text-gray-400">
-                {j.ciudad && (
+                                {j.ciudad && (
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -278,6 +293,20 @@ export function Juzgados() {
                     </svg>
                     <span className="truncate">{j.ciudad}{j.direccion ? ` — ${j.direccion}` : ''}</span>
                   </div>
+                )}
+                {j.mapsUrl && (
+                  <a
+                    href={j.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 010 5.656l-4 4a4 4 0 01-5.656-5.656l1.5-1.5a1 1 0 111.414 1.414l-1.5 1.5a2 2 0 102.828 2.828l4-4a2 2 0 000-2.828" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.172 13.828a4 4 0 010-5.656l4-4a4 4 0 015.656 5.656l-1.5 1.5a1 1 0 11-1.414-1.414l1.5-1.5a2 2 0 10-2.828-2.828l-4 4a2 2 0 000 2.828" />
+                    </svg>
+                    Ver en Google Maps
+                  </a>
                 )}
                 {j.telefono && (
                   <div className="flex items-center gap-2">
@@ -344,11 +373,18 @@ export function Juzgados() {
               onChange={(e) => setForm((p) => ({ ...p, ciudad: e.target.value }))}
               placeholder="Ej: Cochabamba"
             />
-            <Input
+                        <Input
               label="Dirección"
               value={form.direccion ?? ''}
               onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))}
               placeholder="Ej: Av. Heroínas E-0123"
+              containerClassName="col-span-2"
+            />
+            <Input
+              label="Enlace de Google Maps"
+              value={form.mapsUrl ?? ''}
+              onChange={(e) => setForm((p) => ({ ...p, mapsUrl: e.target.value }))}
+              placeholder="https://maps.app.goo.gl/..."
               containerClassName="col-span-2"
             />
             <Input

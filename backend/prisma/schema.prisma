@@ -72,6 +72,7 @@ model Juzgado {
   direccion String?
   ciudad    String?
   telefono  String?
+  mapsUrl   String?
   notas     String?
   active    Boolean  @default(true)
   createdAt DateTime @default(now())

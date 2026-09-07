@@ -66,6 +66,7 @@ export interface Juzgado {
   direccion?: string | null;
   ciudad?: string | null;
   telefono?: string | null;
+  mapsUrl?: string | null;
   notas?: string | null;
   active: boolean;
   createdAt: string;
@@ -78,6 +79,7 @@ export interface JuzgadoFormData {
   direccion?: string;
   ciudad?: string;
   telefono?: string;
+  mapsUrl?: string;
   notas?: string;
 }
 

@@ -10,7 +10,7 @@ export async function findById(id: string) {
 
 export async function create(data: {
   nombre: string; tipo?: string | null; direccion?: string | null;
-  ciudad?: string | null; telefono?: string | null; notas?: string | null;
+  ciudad?: string | null; telefono?: string | null; mapsUrl?: string | null; notas?: string | null;
 }) {
   return prisma.juzgado.create({ data });
 }
