@@ -1,4 +1,5 @@
 import { logger } from '../../config/logger';
+import { isValidUrl } from '../../shared/validators';
 import * as juzgadosRepository from './juzgados.repository';
 
 export async function getAll() {
@@ -18,9 +19,13 @@ export async function create(
   data: { nombre: string; tipo?: string; direccion?: string; ciudad?: string; telefono?: string; mapsUrl?: string; notas?: string },
   actorLog: object
 ) {
-  if (!data.nombre) {
+    if (!data.nombre) {
     logger.warn('JUZGADOS: creación fallida, nombre requerido', actorLog);
     return { error: 'El nombre es requerido', status: 400 as const };
+  }
+  if (data.mapsUrl?.trim() && !isValidUrl(data.mapsUrl)) {
+    logger.warn('JUZGADOS: creación fallida, mapsUrl inválido', actorLog);
+    return { error: 'El enlace de Google Maps debe ser una URL válida (http:// o https://)', status: 400 as const };
   }
 
   const juzgado = await juzgadosRepository.create({
@@ -43,9 +48,13 @@ export async function update(
   actorLog: object
 ) {
   const existing = await juzgadosRepository.findById(id);
-  if (!existing || !existing.active) {
+    if (!existing || !existing.active) {
     logger.warn('JUZGADOS: no encontrado para modificar', { ...actorLog, juzgadoId: id });
     return { error: 'Juzgado not found', status: 404 as const };
+  }
+  if (data.mapsUrl?.trim() && !isValidUrl(data.mapsUrl)) {
+    logger.warn('JUZGADOS: modificación fallida, mapsUrl inválido', { ...actorLog, juzgadoId: id });
+    return { error: 'El enlace de Google Maps debe ser una URL válida (http:// o https://)', status: 400 as const };
   }
 
   const updateData: Record<string, unknown> = {

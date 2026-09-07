@@ -7,6 +7,10 @@ export function isValidEmail(email: string): boolean {
   return EMAIL_REGEX.test(email.trim());
 }
 
+export function isValidUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value.trim());
+}
+
 export const NUREJ_REGEX = /^\d+(-\d+)?$/;
 
 export function normalizeNurej(numero: string): string {

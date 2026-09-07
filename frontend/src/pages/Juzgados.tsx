@@ -9,6 +9,7 @@ import { useFormState } from '../hooks/useFormState';
 import { useAuth } from '../context/AuthContext';
 import { ViewSwitcher } from '../components/ui/ViewSwitcher';
 import { useViewMode } from '../hooks/useViewMode';
+import { isValidUrl } from '../utils/validators';
 
 const emptyForm: JuzgadoFormData = {
   nombre: '', tipo: '', direccion: '', ciudad: '', telefono: '', mapsUrl: '', notas: '',
@@ -84,10 +85,13 @@ export function Juzgados() {
     setShowModal(true);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!form.nombre.trim()) errs.nombre = 'El nombre es requerido.';
+    if (form.mapsUrl?.trim() && !isValidUrl(form.mapsUrl)) {
+      errs.mapsUrl = 'Debe ser un enlace válido (tiene que empezar con http:// o https://).';
+    }
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
     setFieldErrors({});
 
@@ -385,6 +389,7 @@ export function Juzgados() {
               value={form.mapsUrl ?? ''}
               onChange={(e) => setForm((p) => ({ ...p, mapsUrl: e.target.value }))}
               placeholder="https://maps.app.goo.gl/..."
+              error={fieldErrors.mapsUrl}
               containerClassName="col-span-2"
             />
             <Input
