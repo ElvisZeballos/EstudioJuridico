@@ -6,7 +6,7 @@ import { createCalendarEvent } from '../infrastructure/googleCalendar';
 import { uploadToDrive } from '../infrastructure/googleDrive';
 import { sendEmailWithAttachments } from '../infrastructure/email';
 import { sendWhatsAppMessage } from './whatsappService';
-import type { GroqAnalysis } from '../infrastructure/groq';
+import type { NotificationAnalysis } from '../infrastructure/claude';
 import prisma from '../shared/prisma';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ export async function processGroqResults(userDir: string, userId: string): Promi
     return;
   }
 
-  const responses = JSON.parse(fs.readFileSync(responsesPath, 'utf-8')) as Record<string, GroqAnalysis>;
+  const responses = JSON.parse(fs.readFileSync(responsesPath, 'utf-8')) as Record<string, NotificationAnalysis>;
   const entries = Object.entries(responses);
   if (entries.length === 0) return;
 

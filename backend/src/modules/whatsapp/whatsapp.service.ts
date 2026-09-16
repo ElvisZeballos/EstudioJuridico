@@ -8,7 +8,7 @@ import {
   disconnectWhatsApp,
 } from '../../services/whatsappService';
 import { runExtractionForUser } from '../../services/whatsappRunner';
-import { analyzeNotificationsWithGroq } from '../../infrastructure/groq';
+import { analyzeNotifications } from '../../infrastructure/claude';
 import prisma from '../../shared/prisma';
 
 function sanitizeName(name: string): string {
@@ -81,7 +81,7 @@ export async function testGroq(folder: string): Promise<ServiceError | { message
   if (!fs.existsSync(userDir)) {
     return { error: `Carpeta no encontrada: ${userDir}`, status: 404 as const };
   }
-  await analyzeNotificationsWithGroq(userDir);
+  await analyzeNotifications(userDir);
   return { message: 'Análisis completado', userDir };
 }
 

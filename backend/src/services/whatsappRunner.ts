@@ -12,7 +12,7 @@ import {
   softDisconnectSession,
   disconnectAllSessions,
 } from './whatsappService';
-import { analyzeNotificationsWithGroq } from '../infrastructure/groq';
+import { analyzeNotifications } from '../infrastructure/claude';
 import { processGroqResults } from './notificationProcessor';
 import { logger } from '../config/logger';
 import prisma from '../shared/prisma';
@@ -205,12 +205,43 @@ async function filterNotifications(userDir: string): Promise<void> {
     }
   }
 
-  // Collect media files referenced by matching conversations
+  /* Se agrupan rachas de mensajes consecutivos de imagen/PDF (sin texto que las
+   interrumpa en el medio) — un documento de varias páginas mandado como
+   varias fotos seguidas cuenta como un solo bloque. Se conserva el bloque
+   ENTERO si el mensaje justo antes o justo después del bloque tiene la
+   palabra clave, o si alguna imagen del bloque la trae en su propio pie de
+   foto. Así no se pierde ninguna página de un documento largo, y a la vez
+   se sigue excluyendo media suelta sin relación al resto de la conversación. */
+   
   const referencedFiles = new Set<string>();
   for (const conv of Object.values(matching)) {
-    for (const msg of conv.mensajes) {
-      if (msg.tipo === 'imagen' || msg.tipo === 'documento_pdf') {
-        referencedFiles.add(path.basename(msg.archivo));
+    const msgs = conv.mensajes;
+    let i = 0;
+    while (i < msgs.length) {
+      if (msgs[i].tipo !== 'imagen' && msgs[i].tipo !== 'documento_pdf') {
+        i++;
+        continue;
+      }
+      const start = i;
+      while (i < msgs.length && (msgs[i].tipo === 'imagen' || msgs[i].tipo === 'documento_pdf')) {
+        i++;
+      }
+      const block = msgs.slice(start, i);
+
+      const blockHasOwnKeyword = block.some(
+        (m) => m.tipo === 'imagen' && !!m.caption && hasKeyword(m.caption)
+      );
+      const prev = msgs[start - 1];
+      const next = msgs[i];
+      const prevHasKeyword = prev?.tipo === 'texto' && hasKeyword(prev.cuerpo);
+      const nextHasKeyword = next?.tipo === 'texto' && hasKeyword(next.cuerpo);
+
+      if (blockHasOwnKeyword || prevHasKeyword || nextHasKeyword) {
+        for (const m of block) {
+          if (m.tipo === 'imagen' || m.tipo === 'documento_pdf') {
+            referencedFiles.add(path.basename(m.archivo));
+          }
+        }
       }
     }
   }
@@ -389,7 +420,7 @@ export async function runExtractionForUser(userId: string): Promise<void> {
     const userDir = await extractForUser(userId, nombre, apellido, runDir, 0);
 
     await filterNotifications(userDir);
-    await analyzeNotificationsWithGroq(userDir);
+    await analyzeNotifications(userDir);
     await processGroqResults(userDir, userId);
 
     await softDisconnectSession(userId);
@@ -450,7 +481,7 @@ export async function runWhatsAppExtraction(): Promise<void> {
 
       // 4. Filtrar, analizar y procesar (sesión aún abierta para enviar WhatsApp)
       await filterNotifications(userDir);
-      await analyzeNotificationsWithGroq(userDir);
+      await analyzeNotifications(userDir);
       await processGroqResults(userDir, user.id);
 
       // 5. Cerrar sesión
