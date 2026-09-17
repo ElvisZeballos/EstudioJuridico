@@ -13,8 +13,11 @@
     "db:logs": "docker compose logs -f db",
     "db:reset": "docker compose down -v && docker compose up -d db"
   },
-  "prisma": {
+    "prisma": {
     "seed": "ts-node prisma/seed.ts"
+  },
+  "overrides": {
+    "whatsapp-rust-bridge": "0.5.5"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
