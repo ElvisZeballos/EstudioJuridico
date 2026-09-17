@@ -178,7 +178,14 @@ export async function processGroqResults(userDir: string, userId: string): Promi
 
       // ── 5. Guardar CasoNovedad ──────────────────────────────────────────────
       if (caso) {
-        const fechaAgendada = resp.fecha ? new Date(resp.fecha) : null;
+        /* Solo se agenda en Calendar si la IA marcó esto como un evento real
+         (no un simple plazo de referencia) Y trae fecha Y hora — sin hora no
+         se inventa un horario, queda como novedad sin agendar. */
+         
+        const fechaAgendada =
+          resp.esEvento && resp.fecha && resp.hora
+            ? new Date(`${resp.fecha}T${resp.hora}:00`)
+            : null;
         const contenido =
           resp.resumenGeneral +
           (driveFiles.length > 0
