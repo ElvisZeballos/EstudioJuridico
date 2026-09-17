@@ -248,3 +248,19 @@ model CasoNovedad {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 }
+
+model Feriado {
+  id        String   @id @default(uuid())
+  fecha     DateTime
+  nombre    String
+  ambito    String   // "nacional" | "departamental"
+  origen    String   // "decreto" | "manual"
+  createdAt DateTime @default(now())
+}
+
+model ConfiguracionFeriados {
+  id                     String   @id @default(uuid())
+  trasladoJuevesAViernes Boolean  @default(true)
+  trasladoDomingoALunes  Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+}
