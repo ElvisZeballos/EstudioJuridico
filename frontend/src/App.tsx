@@ -14,6 +14,7 @@ const Clients = lazy(() => import('./pages/Clients').then((m) => ({ default: m.C
 const ClientDetail = lazy(() => import('./pages/ClientDetail').then((m) => ({ default: m.ClientDetail })));
 const Users = lazy(() => import('./pages/Users').then((m) => ({ default: m.Users })));
 const Juzgados = lazy(() => import('./pages/Juzgados').then((m) => ({ default: m.Juzgados })));
+const Feriados = lazy(() => import('./pages/Feriados').then((m) => ({ default: m.Feriados })));
 const Casos = lazy(() => import('./pages/Casos').then((m) => ({ default: m.Casos })));
 const CasoDetail = lazy(() => import('./pages/CasoDetail').then((m) => ({ default: m.CasoDetail })));
 const Cuenta = lazy(() => import('./pages/Cuenta').then((m) => ({ default: m.Cuenta })));
@@ -58,6 +59,7 @@ export default function App() {
                   {/* Abogado y Auxiliar */}
                   <Route element={<ProtectedRoute allowedRoles={['ABOGADO', 'AUXILIAR']} />}>
                     <Route path="/juzgados" element={<Juzgados />} />
+                    <Route path="/feriados" element={<Feriados />} />
                   </Route>
                   {/* Abogado, Cliente y Auxiliar */}
                   <Route element={<ProtectedRoute allowedRoles={['ABOGADO', 'CLIENTE', 'AUXILIAR']} />}>

@@ -9,6 +9,9 @@ import type {
   LoginFormData,
   UserFormData,
   ClientFormData,
+  Feriado,
+  FeriadoFormData,
+  ConfiguracionFeriados,
   Caso,
   CasoFormData,
   CasoHistorialEntry,
@@ -192,6 +195,20 @@ export const juzgadosApi = {
 
   delete: (id: string) =>
     api.delete<{ message: string }>(`/juzgados/${id}`).then((r) => r.data),
+};
+
+export const feriadosApi = {
+  getAll: () => api.get<Feriado[]>('/feriados').then((r) => r.data),
+
+  create: (data: FeriadoFormData) =>
+    api.post<Feriado>('/feriados', data).then((r) => r.data),
+
+  delete: (id: string) => api.delete(`/feriados/${id}`).then((r) => r.data),
+
+  getConfiguracion: () => api.get<ConfiguracionFeriados>('/feriados/configuracion').then((r) => r.data),
+
+  updateConfiguracion: (data: Partial<Pick<ConfiguracionFeriados, 'trasladoJuevesAViernes' | 'trasladoDomingoALunes'>>) =>
+    api.put<ConfiguracionFeriados>('/feriados/configuracion', data).then((r) => r.data),
 };
 
 // Caso endpoints

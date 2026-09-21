@@ -73,6 +73,27 @@ export interface Juzgado {
   updatedAt: string;
 }
 
+export interface Feriado {
+  id: string;
+  fecha: string;
+  nombre: string;
+  ambito: 'nacional' | 'departamental';
+  origen: 'decreto' | 'manual';
+  createdAt: string;
+}
+
+export interface FeriadoFormData {
+  fecha: string;
+  nombre: string;
+  ambito: 'nacional' | 'departamental';
+}
+
+export interface ConfiguracionFeriados {
+  id: string;
+  trasladoJuevesAViernes: boolean;
+  trasladoDomingoALunes: boolean;
+}
+
 export interface JuzgadoFormData {
   nombre: string;
   tipo?: string;
