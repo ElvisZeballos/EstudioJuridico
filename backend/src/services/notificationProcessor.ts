@@ -8,6 +8,7 @@ import { sendEmailWithAttachments } from '../infrastructure/email';
 import { sendWhatsAppMessage } from './whatsappService';
 import type { NotificationAnalysis } from '../infrastructure/claude';
 import prisma from '../shared/prisma';
+import { sumarDiasHabiles, sumarDiasCorridos } from '../shared/feriados';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -182,15 +183,33 @@ export async function processGroqResults(userDir: string, userId: string): Promi
 
       // ── 5. Guardar CasoNovedad ──────────────────────────────────────────────
       if (caso) {
+        const casoConfirmado = caso;
         /* Solo se agenda en Calendar si la IA marcó esto como un evento real
          (no un simple plazo de referencia) Y trae fecha Y hora — sin hora no
          se inventa un horario, queda como novedad sin agendar. */
-         
+
         const fechaAgendada =
           resp.esEvento && resp.fecha && resp.hora
             ? new Date(`${resp.fecha}T${resp.hora}:00`)
             : null;
+
+        // Fecha base para calcular el plazo: la que extrajo la IA del propio
+        // documento, o la de procesamiento si no encontró ninguna — con aviso
+        // visible en ese caso, para que quede claro que es un fallback.
+        let fechaBaseWarning = '';
+        let fechaBase: Date;
+        if (resp.fecha) {
+          fechaBase = new Date(`${resp.fecha}T12:00:00.000Z`); // mediodía UTC = mediodía Bolivia, evita saltos de día
+        } else {
+          fechaBase = new Date();
+          fechaBaseWarning =
+            `⚠️ No se identificó una fecha de envío explícita en el documento — se usó la fecha de ` +
+            `procesamiento (${fechaBase.toLocaleDateString('es-BO', { timeZone: 'America/La_Paz' })}) ` +
+            `como base para calcular el plazo.\n\n`;
+        }
+
         const contenido =
+          fechaBaseWarning +
           resp.resumenGeneral +
           (driveFiles.length > 0
             ? '\n\nArchivos:\n' + driveFiles.map((f) => `- ${f.nombre}: ${f.driveUrl}`).join('\n')
@@ -209,24 +228,65 @@ export async function processGroqResults(userDir: string, userId: string): Promi
           },
         });
 
-        // ── 6. Google Calendar si hay fecha ──────────────────────────────────
+        const token = abogadosDestino.find((a) => a.googleRefreshToken)?.googleRefreshToken;
+
+        async function agendarEnCalendar(novedadId: string, tituloEvento: string, contenidoEvento: string, fecha: Date) {
+          if (!token) return;
+          try {
+            const eventId = await createCalendarEvent(token, {
+              titulo: tituloEvento,
+              contenido: contenidoEvento,
+              fechaAgendada: fecha,
+              casoTitulo: casoConfirmado.titulo,
+            });
+            if (eventId) {
+              await prisma.casoNovedad.update({ where: { id: novedadId }, data: { googleCalendarEventId: eventId } });
+              logger.info(`Processor: evento Calendar creado — ${eventId}`);
+            }
+          } catch (err) {
+            logger.warn(`Processor: Calendar falló — ${(err as Error).message}`);
+          }
+        }
+
+        // ── 6. Recordatorio de plazo (si corresponde) ─────────────────────────
+        // No aplica si ya es un evento en sí, ni si es una sentencia (termina
+        // el proceso — se maneja distinto, no se toca en este alcance).
+        if (!resp.esEvento && resp.tipoDocumento !== 'sentencia') {
+          const plazoDias = resp.plazoDias ?? 3;
+          const plazoUnidad = resp.plazoUnidad ?? 'habiles';
+          const fechaLimite =
+            plazoUnidad === 'corridos'
+              ? sumarDiasCorridos(fechaBase, plazoDias)
+              : await sumarDiasHabiles(fechaBase, plazoDias);
+          // 8:00 am en Bolivia = 12:00 UTC (Bolivia es UTC-4 fijo, sin horario de verano)
+          const fechaLimiteConHora = new Date(
+            Date.UTC(fechaLimite.getUTCFullYear(), fechaLimite.getUTCMonth(), fechaLimite.getUTCDate(), 12, 0, 0)
+          );
+          const identificadorCaso = resp.nurej ? `NUREJ ${resp.nurej}` : caso.titulo;
+          const tituloRecordatorio = `Último día para responder — ${identificadorCaso}`;
+
+          const recordatorio = await (prisma.casoNovedad as any).create({
+            data: {
+              casoId: caso.id,
+              autorId: userId,
+              titulo: tituloRecordatorio,
+              contenido:
+                `Plazo de ${plazoDias} día(s) ${plazoUnidad === 'corridos' ? 'corridos' : 'hábiles'} ` +
+                `a partir de la notificación del proceso "${caso.titulo}"` +
+                (resp.plazoDias == null ? ' (plazo por defecto — el documento no especificó uno explícito).' : '.'),
+              fecha: fechaLimiteConHora,
+              fechaAgendada: fechaLimiteConHora,
+              esNotificacion: false,
+            },
+          });
+          await agendarEnCalendar(recordatorio.id, tituloRecordatorio, recordatorio.contenido, fechaLimiteConHora);
+        }
+
+        // ── 7. Google Calendar si hay fecha (evento real) ─────────────────────
         if (fechaAgendada) {
-          const token = abogadosDestino.find((a) => a.googleRefreshToken)?.googleRefreshToken;
-          if (token) {
+          {
             try {
-              const eventId = await createCalendarEvent(token, {
-                titulo: novedad.titulo,
-                contenido: resp.resumenGeneral,
-                fechaAgendada,
-                casoTitulo: caso.titulo,
-              });
-              if (eventId) {
-                await prisma.casoNovedad.update({
-                  where: { id: novedad.id },
-                  data: { googleCalendarEventId: eventId },
-                });
-                logger.info(`Processor: evento Calendar creado — ${eventId}`);
-              }
+              await agendarEnCalendar(novedad.id, novedad.titulo, resp.resumenGeneral, fechaAgendada);
             } catch (err) {
               logger.warn(`Processor: Calendar falló — ${(err as Error).message}`);
             }
