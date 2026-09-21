@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../config/logger';
@@ -25,6 +26,12 @@ interface NotifOutput {
 }
 
 const MAX_ARCHIVOS_POR_REQUEST = 10;
+// Límites reales de la API de Claude (Anthropic): 5 MB por imagen individual,
+// 32 MB el request completo. Se deja margen de seguridad bajo esos topes,
+// contando en bytes "crudos" (antes de base64, que infla ~33% el tamaño real
+// que viaja por la red).
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 20 * 1024 * 1024;
 
 export interface NotificationAnalysis {
   nurej: string | null;
@@ -113,6 +120,24 @@ function buildFallbackResponse(contactName: string): NotificationAnalysis {
   };
 }
 
+/** Lee una imagen del disco; si supera el límite de 5MB de Claude, la
+ *  recomprime en JPEG bajando la calidad hasta que entre, o hasta agotar los
+ *  intentos. Devuelve null si no se pudo bajar del límite de ninguna forma. */
+async function prepararImagen(filePath: string): Promise<Buffer | null> {
+  let buffer = fs.readFileSync(filePath);
+  if (buffer.length <= MAX_IMAGE_BYTES) return buffer;
+
+  for (const calidad of [70, 50, 30]) {
+    try {
+      buffer = Buffer.from(await sharp(filePath).jpeg({ quality: calidad }).toBuffer());
+      if (buffer.length <= MAX_IMAGE_BYTES) return buffer;
+    } catch {
+      // si sharp falla en algún intento, sigue probando con la siguiente calidad
+    }
+  }
+  return null;
+}
+
 type ContentBlock =
   | { type: 'text'; text: string }
   | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png'; data: string } }
@@ -162,18 +187,29 @@ export async function analyzeNotifications(userDir: string): Promise<void> {
       }
 
       let archivoCount = 0;
+      let bytesAcumulados = 0;
+      let archivosOmitidos = 0;
 
       for (const msg of conv.mensajes) {
         if (archivoCount >= MAX_ARCHIVOS_POR_REQUEST) break;
+        if (bytesAcumulados >= MAX_REQUEST_BYTES) {
+          archivosOmitidos++;
+          continue;
+        }
 
         if (msg.tipo === 'imagen' && msg.archivo) {
           const filePath = path.join(userDir, msg.archivo);
           if (fs.existsSync(filePath)) {
-            const base64 = fs.readFileSync(filePath).toString('base64');
-            contentBlocks.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } });
+            const buffer = await prepararImagen(filePath);
+            if (!buffer || bytesAcumulados + buffer.length > MAX_REQUEST_BYTES) {
+              archivosOmitidos++;
+              continue;
+            }
+            contentBlocks.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: buffer.toString('base64') } });
             if (msg.caption) {
               contentBlocks.push({ type: 'text', text: `Descripción de la imagen: ${msg.caption}` });
             }
+            bytesAcumulados += buffer.length;
             archivoCount++;
           }
         }
@@ -181,11 +217,24 @@ export async function analyzeNotifications(userDir: string): Promise<void> {
         if (msg.tipo === 'documento_pdf' && msg.archivo) {
           const filePath = path.join(userDir, msg.archivo);
           if (fs.existsSync(filePath)) {
-            const base64 = fs.readFileSync(filePath).toString('base64');
-            contentBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } });
+            const buffer = fs.readFileSync(filePath);
+            if (buffer.length > MAX_IMAGE_BYTES || bytesAcumulados + buffer.length > MAX_REQUEST_BYTES) {
+              archivosOmitidos++;
+              continue;
+            }
+            contentBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') } });
+            bytesAcumulados += buffer.length;
             archivoCount++;
           }
         }
+      }
+
+      if (archivosOmitidos > 0) {
+        logger.warn(`Claude: ${archivosOmitidos} archivo(s) omitido(s) por exceder el límite de tamaño de la API`);
+        contentBlocks.push({
+          type: 'text',
+          text: `Nota: ${archivosOmitidos} archivo(s) de esta conversación no se pudieron incluir por exceder el límite de tamaño permitido.`,
+        });
       }
 
       contentBlocks.push({ type: 'text', text: 'Analizá los documentos y mensajes de arriba y usá la herramienta "extraer_notificacion" con el resultado.' });
