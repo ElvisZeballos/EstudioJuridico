@@ -144,9 +144,13 @@ export async function processGroqResults(userDir: string, userId: string): Promi
         ${driveHtml}
       </div>`;
 
-      for (const ab of abogadosDestino) {
-        await sendEmailWithAttachments(ab.email, asunto, html, adjuntos);
-        logger.info(`Processor: email enviado a ${ab.email}`);
+        for (const ab of abogadosDestino) {
+        try {
+          await sendEmailWithAttachments(ab.email, asunto, html, adjuntos);
+          logger.info(`Processor: email enviado a ${ab.email}`);
+        } catch (err) {
+          logger.warn(`Processor: email falló para ${ab.email} — ${(err as Error).message}`);
+        }
       }
 
       // ── 4. WhatsApp al cliente ──────────────────────────────────────────────
