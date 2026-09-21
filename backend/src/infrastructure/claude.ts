@@ -47,6 +47,8 @@ const SYSTEM_PROMPT = `Eres un asistente legal especializado en Bolivia. Analiza
 
 IMPORTANTE: no sabés qué rol cumple el cliente del estudio jurídico en este proceso (podría ser demandante, demandado, o un tercero). Nunca asumas ni des a entender de qué lado está — describí los hechos del documento de forma neutral y objetiva en todos los campos.
 
+IMPORTANTE SOBRE DOCUMENTOS MÚLTIPLES: es muy común que la notificación venga acompañada de una copia de un documento anterior al que responde (por ejemplo, un memorial presentado por una de las partes, seguido de la respuesta/auto del juzgado a ese memorial). Estos vienen con fechas distintas, y no necesariamente en orden — no asumas que la primera página cronológicamente es la más antigua. Para identificar cuál es la notificación real (la que manda para calcular fechas y plazos): es la que tiene la fecha MÁS RECIENTE entre todos los documentos fechados presentes. Cualquier documento de fecha anterior dentro del mismo envío es un antecedente o adjunto, no la notificación en sí — mencionalo en el resumen como contexto, pero la "fecha" que reportes debe ser la del documento más reciente.
+
 Usá la herramienta "extraer_notificacion" para devolver los datos extraídos.`;
 
 const TOOL_DEFINITION: Anthropic.Tool = {
@@ -56,22 +58,22 @@ const TOOL_DEFINITION: Anthropic.Tool = {
     type: 'object',
     properties: {
       nurej: { type: ['string', 'null'], description: 'NUREJ o número de expediente si aparece en el documento' },
-      esEvento: {
+        "esEvento": {
         type: 'boolean',
-        description: 'true SOLO si el documento fija una fecha y hora concreta a la que el abogado debe asistir o cumplir en persona (audiencia, inspección, reunión de conciliación, diligencia, etc.). false si solo hay un plazo para responder por escrito, o no hay fecha relevante.',
+        description: 'true SOLO si el documento fija una fecha y hora concreta a la que el abogado debe atender, sea presencial O VIRTUAL (una audiencia, una inspección, una reunión de conciliación, una videollamada, una reunión con un conciliador o mediador, o cualquier otro acto procesal con fecha y hora fija). No asumas que tiene que ser presencial — si el documento dice que es virtual, igual es esEvento: true. false si solo hay un plazo para responder por escrito, o no hay fecha relevante.',
       },
       tipoEvento: { type: ['string', 'null'], description: 'Si esEvento es true: descripción libre y breve del tipo de evento según el documento (ej. "Audiencia de conciliación", "Inspección ocular"). Si es false: null.' },
       fecha: { type: ['string', 'null'], description: 'Si esEvento es true: fecha del evento (YYYY-MM-DD). Si esEvento es false pero hay un plazo: fecha de notificación/publicación desde la cual se cuenta. Si no hay fecha relevante: null.' },
       hora: { type: ['string', 'null'], description: 'Si esEvento es true y el documento menciona hora: formato HH:MM (24hs). Si no: null.' },
       plazoDias: { type: ['number', 'null'], description: 'Número de días para responder o actuar, SOLO si el documento lo menciona explícitamente (ej. "diez días hábiles" → 10). Nunca inventes ni infieras un número que el documento no dice literalmente.' },
       plazoUnidad: { type: ['string', 'null'], enum: ['habiles', 'corridos', null], description: "'habiles' o 'corridos' según lo que diga el documento junto al plazo. Si no hay plazoDias, null." },
-      resumenAbogado: { type: 'string', description: 'Resumen técnico-legal: tipo de acto procesal, juzgado, partes involucradas, plazos legales y acciones que debe tomar el abogado.' },
+      resumenAbogado: { type: 'string', description: 'Resumen técnico-legal: tipo de acto procesal, juzgado, partes involucradas, plazos legales y acciones que debe tomar el abogado. Si el envío incluye un documento anterior (ej. un memorial u otro escrito de alguna de las partes) junto con la respuesta/auto del juzgado a ese documento, estructurá el resumen en dos partes breves: primero qué se solicitó o argumentó en el documento anterior, después qué resolvió o dispuso el juzgado en respuesta — así se entiende el contexto completo sin abrir el archivo original. Si el documento es un acto virtual e incluye un enlace de acceso (Zoom, Meet, Teams, etc.), mencioná que trae un enlace de acceso — pero NO copies ni reproduzcas el enlace en sí, el abogado debe revisarlo directo en el documento original.' },
       resumenCliente: {
         type: 'string',
         description:
-          'Mensaje para el cliente, en 3 partes: (1) empieza EXACTAMENTE con "Buenas tardes {{NOMBRE_CLIENTE}}," (el nombre se reemplaza después por el real, nunca uses un nombre visto en la conversación); (2) resumen breve y NEUTRAL en tercera persona de qué trata el documento, narrando los hechos tal como aparecen, sin asumir de qué lado está el cliente; (3) SIEMPRE cierra pidiendo que se comunique con su abogado a la brevedad posible.',
+          'Mensaje para el cliente, en 3 partes: (1) empieza EXACTAMENTE con "Buenas tardes {{NOMBRE_CLIENTE}}," (el nombre se reemplaza después por el real, nunca uses un nombre visto en la conversación); (2) resumen breve y NEUTRAL en tercera persona de qué trata el documento, narrando los hechos tal como aparecen, sin asumir de qué lado está el cliente — si hay un documento anterior (memorial) junto con la respuesta del juzgado, contextualizá brevemente ambas partes en una sola frase corrida (ej. "en respuesta a un memorial donde se solicitaba X, el juzgado resolvió Y"), sin extenderte de más; (3) SIEMPRE cierra pidiendo que se comunique con su abogado a la brevedad posible.',
       },
-      resumenGeneral: { type: 'string', description: 'Resumen general del documento en 2 o 3 oraciones.' },
+      resumenGeneral: { type: 'string', description: 'Resumen general del documento en 2 o 3 oraciones. Si hay un documento anterior (memorial u otro escrito) junto con la respuesta del juzgado, una oración puede cubrir brevemente qué se pidió y otra qué se resolvió — sin perder la brevedad de 2-3 oraciones en total.' },
       juzgado: { type: ['string', 'null'], description: 'Nombre completo del juzgado tal como aparece en el documento.' },
       tipoDocumento: {
         type: 'string',
