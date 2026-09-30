@@ -48,8 +48,8 @@ async function getFeriadosBase(): Promise<Set<string>> {
   return feriadosCache;
 }
 
-/** ¿Es feriado esta fecha? Contempla los feriados base cargados en la tabla,
- *  más las reglas de traslado activadas (jueves→viernes, domingo→lunes). */
+/* ¿Es feriado esta fecha? Contempla los feriados base cargados en la tabla,
+más las reglas de traslado activadas (jueves→viernes, domingo→lunes). */
 export async function esFeriado(fecha: Date): Promise<boolean> {
   const [config, feriadosBase] = await Promise.all([getConfiguracion(), getFeriadosBase()]);
   const ymd = toYMD(fecha);
@@ -73,15 +73,15 @@ export async function esFeriado(fecha: Date): Promise<boolean> {
   return false;
 }
 
-/** ¿Es día hábil? (no es sábado, ni domingo, ni feriado) */
+// ¿Es día hábil? (no es sábado, ni domingo, ni feriado)
 export async function esDiaHabil(fecha: Date): Promise<boolean> {
   const dow = diaSemanaBolivia(fecha);
   if (dow === 0 || dow === 6) return false;
   return !(await esFeriado(fecha));
 }
 
-/** Suma `dias` días HÁBILES a partir de `fechaInicio` (sin contar el propio
- *  día de inicio), saltando fines de semana y feriados. */
+/* Suma `dias` días HÁBILES a partir de `fechaInicio` (sin contar el propio
+   día de inicio), saltando fines de semana y feriados. */
 export async function sumarDiasHabiles(fechaInicio: Date, dias: number): Promise<Date> {
   const resultado = new Date(fechaInicio);
   let contados = 0;
@@ -92,7 +92,7 @@ export async function sumarDiasHabiles(fechaInicio: Date, dias: number): Promise
   return resultado;
 }
 
-/** Suma `dias` días CORRIDOS (calendario, sin saltar nada) a partir de `fechaInicio`. */
+// Suma `dias` días CORRIDOS (calendario, sin saltar nada) a partir de `fechaInicio`. 
 export function sumarDiasCorridos(fechaInicio: Date, dias: number): Date {
   const resultado = new Date(fechaInicio);
   resultado.setUTCDate(resultado.getUTCDate() + dias);

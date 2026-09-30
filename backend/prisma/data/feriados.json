@@ -1,0 +1,138 @@
+[
+  {
+    "id": "3ded1a38-0ffd-42d8-8d3a-47993dbfa1c4",
+    "fecha": "2026-01-01T04:00:00.000Z",
+    "nombre": "Año Nuevo",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.601Z"
+  },
+  {
+    "id": "84e6895a-d3ee-4b0b-b4ef-85d4cd242e39",
+    "fecha": "2026-01-02T04:00:00.000Z",
+    "nombre": "Feriado adicional (DS 5510)",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.647Z"
+  },
+  {
+    "id": "e2e8133d-1810-4f75-b3a2-2324baba7107",
+    "fecha": "2026-01-23T04:00:00.000Z",
+    "nombre": "Día de la Creación del Estado Plurinacional (trasladado del 22/01)",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.652Z"
+  },
+  {
+    "id": "566703b1-b24a-47a7-9545-7247c190aebf",
+    "fecha": "2026-02-16T04:00:00.000Z",
+    "nombre": "Lunes de Carnaval",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.656Z"
+  },
+  {
+    "id": "1ce10cb7-6140-4fce-ac27-0a9de2ad24de",
+    "fecha": "2026-02-17T04:00:00.000Z",
+    "nombre": "Martes de Carnaval",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.661Z"
+  },
+  {
+    "id": "fe56f91e-ff71-43da-8211-aaa0fe0f4c83",
+    "fecha": "2026-04-03T04:00:00.000Z",
+    "nombre": "Viernes Santo",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.664Z"
+  },
+  {
+    "id": "8e7089ea-c5ff-4df3-8e86-d40e7ba2cdf9",
+    "fecha": "2026-05-01T04:00:00.000Z",
+    "nombre": "Día del Trabajo",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.672Z"
+  },
+  {
+    "id": "6c4de9b8-22b5-4886-89ce-7dad19a3510d",
+    "fecha": "2026-06-04T04:00:00.000Z",
+    "nombre": "Corpus Christi",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.675Z"
+  },
+  {
+    "id": "dbe9e4cb-78f4-4b28-bc30-1d14aa027dab",
+    "fecha": "2026-06-05T04:00:00.000Z",
+    "nombre": "Feriado adicional (DS 5521)",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.680Z"
+  },
+  {
+    "id": "65cd1ac6-6a15-40f3-b4ce-f09eeda1ffe4",
+    "fecha": "2026-06-22T04:00:00.000Z",
+    "nombre": "Año Nuevo Andino Amazónico Chaqueño (trasladado del 21/06)",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.683Z"
+  },
+  {
+    "id": "8f60e712-67c0-4c3e-aa60-42ef026774fc",
+    "fecha": "2026-08-06T04:00:00.000Z",
+    "nombre": "Día de la Independencia",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.687Z"
+  },
+  {
+    "id": "e7aea804-284b-4ed3-ae39-2f6b48319380",
+    "fecha": "2026-08-07T04:00:00.000Z",
+    "nombre": "Feriado adicional (DS 5521)",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.691Z"
+  },
+  {
+    "id": "8104c60d-6941-42a4-a58e-a883c5f2d6c3",
+    "fecha": "2026-09-14T04:00:00.000Z",
+    "nombre": "Gesta Libertaria de Cochabamba",
+    "ambito": "departamental",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.695Z"
+  },
+  {
+    "id": "80767e6a-80e4-4676-a558-93991c0764b2",
+    "fecha": "2026-11-02T04:00:00.000Z",
+    "nombre": "Todos los Santos",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.698Z"
+  },
+  {
+    "id": "02426edb-141a-471c-ab14-773002a36d39",
+    "fecha": "2026-12-25T04:00:00.000Z",
+    "nombre": "Navidad",
+    "ambito": "nacional",
+    "origen": "decreto",
+    "createdAt": "2026-09-17T17:53:09.703Z"
+  },
+  {
+    "id": "e9b9713c-f43f-4b00-b5c2-08fa9d8394f2",
+    "fecha": "2026-09-24T04:00:00.000Z",
+    "nombre": "feriado jueves ",
+    "ambito": "nacional",
+    "origen": "manual",
+    "createdAt": "2026-09-17T19:25:00.625Z"
+  },
+  {
+    "id": "89425d50-0a19-4a6c-a2e7-d1d9a92a08cc",
+    "fecha": "2026-09-20T04:00:00.000Z",
+    "nombre": "Super feriado",
+    "ambito": "nacional",
+    "origen": "manual",
+    "createdAt": "2026-09-21T03:04:10.118Z"
+  }
+]
