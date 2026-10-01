@@ -74,7 +74,7 @@ export async function updateCaso(req: AuthRequest, res: Response): Promise<void>
 
 export async function deleteCaso(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const result = await casosService.deactivate(req.params.id, actor(req));
+        const result = await casosService.deactivate(req.params.id, req.user!.id, req.user!.role, actor(req));
     if ('error' in result) {
       res.status(result.status ?? 500).json({ error: result.error });
       return;

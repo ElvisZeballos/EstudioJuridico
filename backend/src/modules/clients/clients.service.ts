@@ -93,6 +93,17 @@ export async function getById(id: string, userId: string, role: string) {
   if (role === 'CLIENTE' && client.userId !== userId) {
     return { error: 'Access denied', status: 403 as const };
   }
+  if (role === 'ABOGADO') {
+    const shared = await clientsRepository.hasSharedCasoWithAbogados(id, [userId]);
+    if (!shared) return { error: 'Access denied', status: 403 as const };
+  }
+  if (role === 'AUXILIAR') {
+    const { getAbogadosByAuxiliar } = await import('../users/users.repository');
+    const abogadoIds = await getAbogadosByAuxiliar(userId);
+    if (abogadoIds.length === 0) return { error: 'Access denied', status: 403 as const };
+    const shared = await clientsRepository.hasSharedCasoWithAbogados(id, abogadoIds);
+    if (!shared) return { error: 'Access denied', status: 403 as const };
+  }
 
   return { client: decryptClient(client) };
 }

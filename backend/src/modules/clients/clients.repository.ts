@@ -27,6 +27,16 @@ export async function findByUserId(userId: string) {
   return prisma.client.findFirst({ where: { userId, active: true }, include: CLIENT_INCLUDE });
 }
 
+export async function hasSharedCasoWithAbogados(clientId: string, abogadoIds: string[]) {
+  const count = await prisma.client.count({
+    where: {
+      id: clientId,
+      casos: { some: { caso: { abogados: { some: { abogadoId: { in: abogadoIds } } } } } },
+    },
+  });
+  return count > 0;
+}
+
 export async function create(data: {
   userId: string;
   abogadoId?: string | null;

@@ -270,9 +270,14 @@ export async function update(
   return { caso: transformCaso(updated) };
 }
 
-export async function deactivate(id: string, actorLog: object) {
+export async function deactivate(id: string, userId: string, role: string, actorLog: object) {
   const existing = await casosRepository.findByIdWithAbogados(id);
   if (!existing || !existing.active) return { error: 'Caso no encontrado', status: 404 as const };
+
+  if (role === 'ABOGADO') {
+    const isAssigned = existing.abogados.some((a) => a.abogadoId === userId);
+    if (!isAssigned) return { error: 'Acceso denegado', status: 403 as const };
+  }
 
   await casosRepository.deactivate(id);
   logger.info('CASOS: eliminado', { ...actorLog, casoId: id });
