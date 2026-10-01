@@ -69,11 +69,20 @@ export async function getById(id: string, userId: string, role: string) {
 }
 
 export async function getHistorial(id: string, userId: string, role: string) {
-  const caso = await casosRepository.findByIdWithAbogados(id);
+  const caso = await casosRepository.findById(id);
   if (!caso || !caso.active) return { error: 'Caso no encontrado', status: 404 as const };
 
   if (role === 'ABOGADO') {
     const isAssigned = caso.abogados.some((a) => a.abogadoId === userId);
+    if (!isAssigned) return { error: 'Acceso denegado', status: 403 as const };
+  } else if (role === 'CLIENTE') {
+    const client = await casosRepository.findClientByUserId(userId);
+    const isAssigned = client && caso.clientes.some((c) => c.clienteId === client.id);
+    if (!isAssigned) return { error: 'Acceso denegado', status: 403 as const };
+  } else if (role === 'AUXILIAR') {
+    const { getAbogadosByAuxiliar } = await import('../../modules/users/users.repository');
+    const abogadoIds = await getAbogadosByAuxiliar(userId);
+    const isAssigned = caso.abogados.some((a) => abogadoIds.includes(a.abogadoId));
     if (!isAssigned) return { error: 'Acceso denegado', status: 403 as const };
   }
 

@@ -15,6 +15,12 @@ function parseBoliviaDatetime(naive: string): Date {
 async function buildCasoFilter(userId: string, role: string): Promise<object | null> {
   if (role === 'ADMIN') return {};
   if (role === 'ABOGADO') return { abogados: { some: { abogadoId: userId } } };
+  if (role === 'AUXILIAR') {
+    const { getAbogadosByAuxiliar } = await import('../../modules/users/users.repository');
+    const abogadoIds = await getAbogadosByAuxiliar(userId);
+    if (abogadoIds.length === 0) return null;
+    return { abogados: { some: { abogadoId: { in: abogadoIds } } } };
+  }
 
   const client = await novedadesRepository.findClientByUserId(userId);
   if (!client) return null;
@@ -65,9 +71,16 @@ export async function getByCaso(casoId: string, userId: string, role: string) {
   if (role === 'ABOGADO' && !caso.abogados.some((a) => a.abogadoId === userId)) {
     return { error: 'Caso no encontrado o acceso denegado', status: 404 as const };
   }
-  if (role === 'CLIENTE') {
+    if (role === 'CLIENTE') {
     const client = await novedadesRepository.findClientByUserId(userId);
     if (!client || !caso.clientes.some((c) => c.clienteId === client.id)) {
+      return { error: 'Caso no encontrado o acceso denegado', status: 404 as const };
+    }
+  }
+  if (role === 'AUXILIAR') {
+    const { getAbogadosByAuxiliar } = await import('../../modules/users/users.repository');
+    const abogadoIds = await getAbogadosByAuxiliar(userId);
+    if (!caso.abogados.some((a) => abogadoIds.includes(a.abogadoId))) {
       return { error: 'Caso no encontrado o acceso denegado', status: 404 as const };
     }
   }

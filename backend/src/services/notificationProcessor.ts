@@ -190,7 +190,7 @@ export async function processGroqResults(userDir: string, userId: string): Promi
 
         const fechaAgendada =
           resp.esEvento && resp.fecha && resp.hora
-            ? new Date(`${resp.fecha}T${resp.hora}:00`)
+            ? new Date(`${resp.fecha}T${resp.hora}:00-04:00`)
             : null;
 
         // Fecha base para calcular el plazo: la que extrajo la IA del propio
