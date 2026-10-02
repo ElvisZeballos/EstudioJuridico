@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { encryptIfDefined, decryptIfDefined } from '../../config/encryption';
 import { logger } from '../../config/logger';
 import { sendEmail } from '../../infrastructure/email';
-import { isValidEmail, isPhoneInUse, isDniInUse } from '../../shared/validators';
+import { isValidEmail, isPhoneInUse, isDniInUse, validarEdadMinima } from '../../shared/validators';
 import * as usersRepository from './users.repository';
 
 type ServiceError = { error: string; status: number };
@@ -60,6 +60,11 @@ export async function create(data: {
     return { error: 'El correo electrónico ya está en uso.', status: 409 as const };
   }
 
+  if (fechaNacimiento && (role || 'CLIENTE') === 'ABOGADO') {
+    const errorEdad = validarEdadMinima(fechaNacimiento, 18, 'abogado');
+    if (errorEdad) return { error: errorEdad, status: 400 as const };
+  }
+
   if (telefono && await isPhoneInUse(telefono)) {
     return { error: 'El número de teléfono ya está en uso.', status: 409 as const };
   }
@@ -103,6 +108,12 @@ export async function update(
   if (email !== undefined && typeof email === 'string' && !isValidEmail(email)) {
     return { error: 'El formato del correo electrónico no es válido.', status: 400 as const };
   }
+  const rolResultante = requesterRole === 'ADMIN' && typeof role === 'string' ? role : existing.role;
+  if (fechaNacimiento && typeof fechaNacimiento === 'string' && rolResultante === 'ABOGADO') {
+    const errorEdad = validarEdadMinima(fechaNacimiento, 18, 'abogado');
+    if (errorEdad) return { error: errorEdad, status: 400 as const };
+  }
+
   if (telefono && typeof telefono === 'string' && await isPhoneInUse(telefono, id)) {
     return { error: 'El número de teléfono ya está en uso.', status: 409 as const };
   }

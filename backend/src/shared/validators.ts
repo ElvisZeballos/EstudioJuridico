@@ -21,6 +21,27 @@ export function isValidNurej(numero: string): boolean {
   return NUREJ_REGEX.test(normalizeNurej(numero));
 }
 
+function calcularEdad(fechaNacimiento: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(fechaNacimiento.trim());
+  if (!match) return null;
+  const [, anio, mes, dia] = match.map(Number);
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  // Fecha de hoy en Bolivia (YYYY-MM-DD), sin depender del huso del servidor
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' });
+  const [hoyAnio, hoyMes, hoyDia] = hoy.split('-').map(Number);
+  let edad = hoyAnio - anio;
+  if (hoyMes < mes || (hoyMes === mes && hoyDia < dia)) edad--;
+  return edad;
+}
+
+export function validarEdadMinima(fechaNacimiento: string, edadMinima: number, rol: string): string | null {
+  const edad = calcularEdad(fechaNacimiento);
+  if (edad === null) return 'Fecha de nacimiento inválida';
+  if (edad < 0) return 'La fecha de nacimiento no puede ser una fecha futura';
+  if (edad < edadMinima) return `No se pueden registrar datos de un ${rol} menor de ${edadMinima} años.`;
+  return null;
+}
+
 export async function isPhoneInUse(telefono: string, excludeId?: string): Promise<boolean> {
   const users = await usersRepository.findAllWithEncryptedFields();
   const normalized = telefono.replace(/\s+/g, '');
