@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { processGroqResults } from '../../src/services/notificationProcessor';
+import { processAiResults } from '../../src/services/notificationProcessor';
 import { encrypt } from '../../src/config/encryption';
 import { prismaMock, resetPrismaMock } from '../helpers/prismaMock';
 
@@ -55,8 +55,8 @@ function analisis(over: Record<string, unknown> = {}) {
 let tmpDir: string;
 
 async function procesar(resp: Record<string, unknown>) {
-  fs.writeFileSync(path.join(tmpDir, 'groq_respuestas.json'), JSON.stringify({ respuesta_1: resp }), 'utf-8');
-  await processGroqResults(tmpDir, 'ab-1');
+  fs.writeFileSync(path.join(tmpDir, 'respuestas_ia.json'), JSON.stringify({ respuesta_1: resp }), 'utf-8');
+  await processAiResults(tmpDir, 'ab-1');
 }
 
 beforeEach(() => {
@@ -114,10 +114,10 @@ describe('normalización del teléfono del cliente (formato Bolivia 591XXXXXXXX)
     expect(prismaMock.casoNovedad.create).toHaveBeenCalled(); // la novedad se guarda igual
   });
 
-  test('LIMITACIÓN: todo número que no empiece con 591 se asume boliviano (un número extranjero queda con prefijo 591 adelante)', async () => {
+  test('número extranjero guardado con "+" conserva su código de país y NO recibe el prefijo 591', async () => {
     prismaMock.caso.findFirst.mockResolvedValue(casoConTelefono('+54 9 11 1234-5678'));
     await procesar(analisis());
-    expect(sendWhatsAppMessage).toHaveBeenCalledWith('ab-1', '5915491112345678', expect.any(String));
+    expect(sendWhatsAppMessage).toHaveBeenCalledWith('ab-1', '5491112345678', expect.any(String));
   });
 
   test('reemplaza {{NOMBRE_CLIENTE}} por el nombre real de la base de datos, no el que extrajo la IA', async () => {
@@ -160,7 +160,7 @@ describe('búsqueda del caso por NUREJ', () => {
   });
 
   test('si no existe el archivo de respuestas, termina sin error', async () => {
-    await expect(processGroqResults(path.join(tmpDir, 'no-existe'), 'ab-1')).resolves.toBeUndefined();
+    await expect(processAiResults(path.join(tmpDir, 'no-existe'), 'ab-1')).resolves.toBeUndefined();
   });
 });
 

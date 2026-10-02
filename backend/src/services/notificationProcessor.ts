@@ -58,10 +58,10 @@ async function uploadMediaFiles(
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export async function processGroqResults(userDir: string, userId: string): Promise<void> {
-  const responsesPath = path.join(userDir, 'groq_respuestas.json');
+export async function processAiResults(userDir: string, userId: string): Promise<void> {
+  const responsesPath = path.join(userDir, 'respuestas_ia.json');
   if (!fs.existsSync(responsesPath)) {
-    logger.info(`Processor: sin groq_respuestas.json en ${userDir}`);
+    logger.info(`Processor: sin respuestas_ia.json en ${userDir}`);
     return;
   }
 

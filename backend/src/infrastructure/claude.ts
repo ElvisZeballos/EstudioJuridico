@@ -268,6 +268,6 @@ export async function analyzeNotifications(userDir: string): Promise<void> {
     }
   }
 
-  fs.writeFileSync(path.join(userDir, 'groq_respuestas.json'), JSON.stringify(responses, null, 2), 'utf-8');
+  fs.writeFileSync(path.join(userDir, 'respuestas_ia.json'), JSON.stringify(responses, null, 2), 'utf-8');
   logger.info(`Claude: análisis finalizado — ${conversations.length} conversación(es) — ${userDir}`);
 }

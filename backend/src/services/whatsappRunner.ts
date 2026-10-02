@@ -13,7 +13,7 @@ import {
   disconnectAllSessions,
 } from './whatsappService';
 import { analyzeNotifications } from '../infrastructure/claude';
-import { processGroqResults } from './notificationProcessor';
+import { processAiResults } from './notificationProcessor';
 import { logger } from '../config/logger';
 import prisma from '../shared/prisma';
 
@@ -421,7 +421,7 @@ export async function runExtractionForUser(userId: string): Promise<void> {
 
     await filterNotifications(userDir);
     await analyzeNotifications(userDir);
-    await processGroqResults(userDir, userId);
+    await processAiResults(userDir, userId);
 
     await softDisconnectSession(userId);
     logger.info(`Runner manual: sesión de ${nombre} ${apellido} cerrada`);
@@ -482,7 +482,7 @@ export async function runWhatsAppExtraction(): Promise<void> {
       // 4. Filtrar, analizar y procesar (sesión aún abierta para enviar WhatsApp)
       await filterNotifications(userDir);
       await analyzeNotifications(userDir);
-      await processGroqResults(userDir, user.id);
+      await processAiResults(userDir, user.id);
 
       // 5. Cerrar sesión
       await softDisconnectSession(user.id);
