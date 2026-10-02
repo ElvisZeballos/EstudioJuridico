@@ -11,7 +11,7 @@ function useSessionCountdown() {
 
   useEffect(() => {
     function getExpiry(): number | null {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       if (!token) return null;
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
