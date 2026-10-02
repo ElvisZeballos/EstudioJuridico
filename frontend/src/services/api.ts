@@ -102,9 +102,6 @@ export const authApi = {
   login: (data: LoginFormData) =>
     api.post<AuthResponse>('/auth/login', data).then((r) => r.data),
 
-  register: (data: UserFormData) =>
-    api.post<AuthResponse>('/auth/register', data).then((r) => r.data),
-
   getMe: () => api.get<User>('/auth/me').then((r) => r.data),
 
   forgotPassword: (email: string) =>

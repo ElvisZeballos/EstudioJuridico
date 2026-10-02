@@ -585,46 +585,6 @@ descifran automáticamente en las respuestas: \`dni\`, \`telefono\`, \`direccion
       },
     },
 
-    '/api/auth/register': {
-      post: {
-        tags: ['Auth'],
-        summary: 'Registrar nuevo usuario',
-        description: 'Crea una nueva cuenta de usuario. El rol por defecto es `CLIENTE`. Los campos sensibles (`dni`, `telefono`, `direccion`, `fechaNacimiento`) se almacenan cifrados.',
-        security: [],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                required: ['email', 'password', 'nombre', 'apellido'],
-                properties: {
-                  email:           { type: 'string', format: 'email' },
-                  password:        { type: 'string', minLength: 6 },
-                  nombre:          { type: 'string' },
-                  apellido:        { type: 'string' },
-                  role:            { $ref: '#/components/schemas/Role' },
-                  dni:             { type: 'string' },
-                  telefono:        { type: 'string' },
-                  direccion:       { type: 'string' },
-                  fechaNacimiento: { type: 'string', example: '1985-06-15' },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          201: {
-            description: 'Usuario creado exitosamente',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } },
-          },
-          400: ErrorResponse('Campos requeridos faltantes'),
-          409: ErrorResponse('El email ya está registrado'),
-          500: ErrorResponse('Error interno'),
-        },
-      },
-    },
-
     '/api/auth/me': {
       get: {
         tags: ['Auth'],
