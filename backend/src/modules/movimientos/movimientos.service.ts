@@ -2,6 +2,14 @@ import { TipoMovimiento } from '@prisma/client';
 import { logger } from '../../config/logger';
 import * as movimientosRepository from './movimientos.repository';
 
+// La columna monto es Decimal(10,2): maximo 99,999,999.99
+const MONTO_MAXIMO = 99999999.99;
+
+function montoInvalido(monto: unknown): boolean {
+  const n = Number(monto);
+  return !Number.isFinite(n) || n <= 0 || n > MONTO_MAXIMO;
+}
+
 function buildStatsResponse(ingresos: { _sum: { monto: unknown }; _count: number }, egresos: { _sum: { monto: unknown }; _count: number }, total: number) {
   const totalIngresos = Number(ingresos._sum.monto ?? 0);
   const totalEgresos = Number(egresos._sum.monto ?? 0);
@@ -68,6 +76,9 @@ export async function create(
   if (!['INGRESO', 'EGRESO'].includes(tipo)) {
     return { error: 'Tipo debe ser INGRESO o EGRESO', status: 400 as const };
   }
+  if (montoInvalido(monto)) {
+    return { error: 'El monto debe ser un número mayor a 0', status: 400 as const };
+  }
 
   if (casoId) {
     const caso = await movimientosRepository.findCasoWithAbogados(casoId);
@@ -84,7 +95,7 @@ export async function create(
     abogadoId,
     tipo: tipo as TipoMovimiento,
     concepto,
-    monto: parseFloat(String(monto)),
+    monto: Number(monto),
     fecha: new Date(fecha),
     notas: notas || null,
   });
@@ -108,10 +119,13 @@ export async function update(
   }
 
   const { tipo, concepto, monto, fecha, notas } = data;
+  if (monto !== undefined && montoInvalido(monto)) {
+    return { error: 'El monto debe ser un número mayor a 0', status: 400 as const };
+  }
   const updateData: Record<string, unknown> = {
     ...(tipo !== undefined && { tipo }),
     ...(concepto !== undefined && { concepto }),
-    ...(monto !== undefined && { monto: parseFloat(String(monto)) }),
+    ...(monto !== undefined && { monto: Number(monto) }),
     ...(fecha !== undefined && { fecha: new Date(fecha) }),
     ...(notas !== undefined && { notas: notas || null }),
   };
