@@ -72,8 +72,8 @@ export function ClientDetail() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
-  const canDelete = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
+  const canEdit = user?.role === 'ABOGADO';
+  const canDelete = user?.role === 'ABOGADO';
 
   useEffect(() => {
     if (!id) return;

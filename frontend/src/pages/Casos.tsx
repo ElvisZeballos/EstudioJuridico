@@ -44,9 +44,9 @@ export function Casos() {
   const [clientes, setClientes] = useState<Client[]>([]);
   const [juzgados, setJuzgados] = useState<Juzgado[]>([]);
 
-  const canWrite = user?.role === 'ADMIN' || user?.role === 'ABOGADO';
+  const canWrite = user?.role === 'ABOGADO';
   const maxFechaInicio = `${new Date().getFullYear()}-12-31`;
-  const canDelete = user?.role === 'ADMIN';
+  const canDelete = user?.role === 'ABOGADO';
   const showViewSwitcher = user?.role === 'ABOGADO' || user?.role === 'AUXILIAR';
   const { viewMode, setViewMode } = useViewMode('casos', showViewSwitcher);
 
