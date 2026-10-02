@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import axios from 'axios';
+import { isValidPassword, PASSWORD_REQUIREMENTS_MESSAGE } from '../utils/validators';
 
 export function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -36,8 +37,8 @@ export function ResetPassword() {
       setError('Las contraseñas no coinciden.');
       return;
     }
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    if (!isValidPassword(password)) {
+      setError(PASSWORD_REQUIREMENTS_MESSAGE);
       return;
     }
 

@@ -9,6 +9,7 @@ import axios from 'axios';
 import type { User } from '../types';
 import {OTHER_COUNTRY_VALUE, splitPhone, joinPhone, sanitizePhoneLocal, sanitizeCustomCode, isValidPhoneLocal } from '../utils/phoneCountries';
 import { PhoneCountrySelect } from '../components/ui/PhoneCountrySelect';
+import { isValidPassword, PASSWORD_REQUIREMENTS_MESSAGE } from '../utils/validators';
 
 function calcularEdad(fechaNacimiento: string): number {
   const nacimiento = new Date(fechaNacimiento);
@@ -268,7 +269,7 @@ export function Profile() {
     const errs: Record<string, string> = {};
     if (!pwForm.currentPassword)                                errs.currentPassword = 'Ingresá tu contraseña actual.';
     if (!pwForm.newPassword)                                    errs.newPassword     = 'Ingresá la nueva contraseña.';
-    else if (pwForm.newPassword.length < 6)                     errs.newPassword     = 'Mínimo 6 caracteres.';
+    else if (!isValidPassword(pwForm.newPassword))              errs.newPassword     = PASSWORD_REQUIREMENTS_MESSAGE;
     if (pwForm.newPassword !== pwForm.confirmPassword)          errs.confirmPassword = 'Las contraseñas no coinciden.';
     if (Object.keys(errs).length) { setPwFieldErrors(errs); return; }
     setPwFieldErrors({});
