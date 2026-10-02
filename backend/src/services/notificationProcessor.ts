@@ -157,10 +157,14 @@ export async function processGroqResults(userDir: string, userId: string): Promi
       // ── 4. WhatsApp al cliente ──────────────────────────────────────────────
       if (caso) {
         for (const cc of caso.clientes) {
-          const raw = decryptIfDefined(cc.cliente.user.telefono ?? null)?.replace(/\D/g, '') ?? '';
+          const telefonoGuardado = decryptIfDefined(cc.cliente.user.telefono ?? null)?.trim() ?? '';
+          const raw = telefonoGuardado.replace(/\D/g, '');
           if (!raw) continue;
-          // Normalizar a formato Bolivia: 591XXXXXXXX
-          const phone = raw.startsWith('591') ? raw : `591${raw}`;
+          // Con "+" el numero ya trae su codigo de pais (ej. "+54 11 ...") y se usa tal cual.
+          // Sin "+" se asume numero boliviano local: 591XXXXXXXX
+          const phone = telefonoGuardado.startsWith('+')
+            ? raw
+            : raw.startsWith('591') ? raw : `591${raw}`;
           if (phone.length < 11) {
             logger.warn(`Processor: teléfono inválido para ${cc.cliente.user.nombre} — "${raw}"`);
             continue;
