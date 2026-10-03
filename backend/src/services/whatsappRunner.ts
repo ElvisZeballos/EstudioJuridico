@@ -20,7 +20,11 @@ import prisma from '../shared/prisma';
 const LOOK_BACK_MS = 24 * 60 * 60 * 1000;
 const MESSAGE_SETTLE_MS = 45_000; // wait after connect for WhatsApp to push delta — TEMPORAL, subido para diagnóstico
 
-const NOTIFICATION_KEYWORDS = ['juzgado', 'jusgado', 'notificaci', 'tribunal'];
+const NOTIFICATION_KEYWORDS = [
+  'juzgad', 'jusgad', 'notific', 'tribunal',
+  'sala civil', 'sala penal', 'sala familia',
+  'diligencias', 'proveido', 'proveído', 'edicto', 'memorial',
+];
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
