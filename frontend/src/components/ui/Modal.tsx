@@ -139,6 +139,12 @@ export function ConfirmModal({
             type="text"
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.repeat && canConfirm && !isLoading) {
+                e.preventDefault();
+                onConfirm();
+              }
+            }}
             placeholder="CONFIRMAR"
             autoComplete="off"
             autoFocus
