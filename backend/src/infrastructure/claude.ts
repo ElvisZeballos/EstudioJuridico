@@ -231,7 +231,7 @@ export async function analyzeNotifications(userDir: string): Promise<void> {
           const filePath = path.join(userDir, msg.archivo);
           if (fs.existsSync(filePath)) {
             const buffer = fs.readFileSync(filePath);
-            if (buffer.length > MAX_IMAGE_BYTES || bytesAcumulados + buffer.length > MAX_REQUEST_BYTES) {
+              if (bytesAcumulados + buffer.length > MAX_REQUEST_BYTES) {
               archivosOmitidos++;
               continue;
             }
