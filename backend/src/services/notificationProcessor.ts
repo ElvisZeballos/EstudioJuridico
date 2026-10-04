@@ -257,7 +257,7 @@ export async function processAiResults(userDir: string, userId: string): Promise
         // el proceso — se maneja distinto, no se toca en este alcance).
         if (!resp.esEvento && resp.tipoDocumento !== 'sentencia') {
           const plazoDias = resp.plazoDias ?? 3;
-          const plazoUnidad = resp.plazoUnidad ?? 'habiles';
+          const plazoUnidad = resp.plazoUnidad ?? (plazoDias > 15 ? 'corridos' : 'habiles');
           const fechaLimite =
             plazoUnidad === 'corridos'
               ? sumarDiasCorridos(fechaBase, plazoDias)
