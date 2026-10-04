@@ -236,6 +236,9 @@ export async function analyzeNotifications(userDir: string): Promise<void> {
               continue;
             }
             contentBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') } });
+            if (msg.caption) {
+              contentBlocks.push({ type: 'text', text: `Descripción del documento: ${msg.caption}` });
+            }
             bytesAcumulados += buffer.length;
             archivoCount++;
           }

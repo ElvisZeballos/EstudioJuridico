@@ -1,5 +1,6 @@
 import {
   downloadContentFromMessage,
+  normalizeMessageContent,
   proto,
 } from '@whiskeysockets/baileys';
 import fs from 'fs';
@@ -48,6 +49,7 @@ interface PdfMessage {
   timestamp: string;
   deMi: boolean;
   tipo: 'documento_pdf';
+  caption?: string;
   nombreArchivo: string;
   archivo: string;
 }
@@ -110,7 +112,7 @@ async function processMessage(
   mediaDir: string,
   idx: number
 ): Promise<ExtractedMessage | null> {
-  const content = msg.message;
+  const content = normalizeMessageContent(msg.message) ?? msg.message;
   if (!content) return null;
 
   const ts = new Date(Number(msg.messageTimestamp) * 1000);
@@ -165,13 +167,16 @@ async function processMessage(
       logger.warn(`Runner: no se pudo descargar PDF de ${safeName} [${idx}]: ${(err as Error).message}`);
       return null;
     }
-    return {
+    const pdfResult: PdfMessage = {
       timestamp: ts.toISOString(),
       deMi: fromMe,
       tipo: 'documento_pdf',
       nombreArchivo: originalName,
       archivo: `media/${filename}`,
     };
+    const pdfCaption = content.documentMessage.caption;
+    if (pdfCaption) pdfResult.caption = pdfCaption;
+    return pdfResult;
   }
 
   return null;
@@ -201,7 +206,9 @@ async function filterNotifications(userDir: string): Promise<void> {
       (m) => m.tipo === 'imagen' || m.tipo === 'documento_pdf'
     );
     const hasNotifKeyword = conv.mensajes.some(
-      (m) => m.tipo === 'texto' && hasKeyword(m.cuerpo)
+      (m) =>
+        (m.tipo === 'texto' && hasKeyword(m.cuerpo)) ||
+        ((m.tipo === 'imagen' || m.tipo === 'documento_pdf') && !!m.caption && hasKeyword(m.caption))
     );
     const allFromMe = conv.mensajes.every((m) => m.deMi);
     if (hasMedia && hasNotifKeyword && !allFromMe) {
@@ -233,7 +240,7 @@ async function filterNotifications(userDir: string): Promise<void> {
       const block = msgs.slice(start, i);
 
       const blockHasOwnKeyword = block.some(
-        (m) => m.tipo === 'imagen' && !!m.caption && hasKeyword(m.caption)
+        (m) => (m.tipo === 'imagen' || m.tipo === 'documento_pdf') && !!m.caption && hasKeyword(m.caption)
       );
       const prev = msgs[start - 1];
       const next = msgs[i];
