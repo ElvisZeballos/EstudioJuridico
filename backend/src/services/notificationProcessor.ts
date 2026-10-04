@@ -225,7 +225,7 @@ export async function processAiResults(userDir: string, userId: string): Promise
             autorId: userId,
             titulo: asunto + (resp.tipoDocumento ? ` (${resp.tipoDocumento})` : ''),
             contenido,
-            fecha: new Date(),
+            fecha: new Date(`${new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' })}T00:00:00.000Z`),
             fechaAgendada,
             esNotificacion: true,
             archivos: driveFiles.length > 0 ? JSON.stringify(driveFiles) : null,
