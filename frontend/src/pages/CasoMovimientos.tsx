@@ -9,6 +9,9 @@ import { useFormState } from '../hooks/useFormState';
 import { formatMoney } from '../utils/format';
 import type { Movimiento, MovimientoFormData, MovimientoStats, Caso, TipoMovimiento } from '../types';
 import axios from 'axios';
+import { useUrlParams } from '../hooks/useUrlParams';
+import { DateRangeFilter } from '../components/ui/DateRangeFilter';
+import { presetToRange, enRangoUtc, type DatePreset } from '../utils/dates';
 
 
 const BOLIVIA_TZ = 'America/La_Paz';
@@ -39,6 +42,9 @@ export function CasoMovimientos() {
   const [editing, setEditing] = useState<Movimiento | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filterTipo, setFilterTipo] = useState<TipoMovimiento | 'TODOS'>('TODOS');
+  const url = useUrlParams();
+  const fechaPreset = (url.get('mf', 'todas') as DatePreset);
+  const fechaRango = presetToRange(fechaPreset, url.get('md'), url.get('mh'));
 
   const { form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit } =
     useFormState<MovimientoFormData>(emptyForm);
@@ -116,7 +122,9 @@ export function CasoMovimientos() {
     }
   }
 
-  const filtered = movimientos.filter((m) => filterTipo === 'TODOS' || m.tipo === filterTipo);
+  const filtered = movimientos.filter(
+    (m) => (filterTipo === 'TODOS' || m.tipo === filterTipo) && enRangoUtc(m.fecha, fechaRango.desde, fechaRango.hasta),
+  );
 
   if (isLoading) {
     return (
@@ -216,6 +224,13 @@ export function CasoMovimientos() {
         </div>
         <span className="text-xs text-gray-400 dark:text-gray-500">{filtered.length} registros</span>
       </div>
+      <DateRangeFilter
+        preset={fechaPreset}
+        desde={fechaRango.desde}
+        hasta={fechaRango.hasta}
+        presets={['todas', 'hoy', 'ayer', '7dias', 'fecha']}
+        onChange={(f) => url.set({ mf: f.preset === 'todas' ? '' : f.preset, md: f.preset === 'fecha' ? f.desde : '', mh: f.preset === 'fecha' ? f.hasta : '' })}
+      />
 
       {/* List */}
       <Card padding="none" className="overflow-hidden">

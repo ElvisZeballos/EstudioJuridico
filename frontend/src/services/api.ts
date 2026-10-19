@@ -244,8 +244,8 @@ export const casoNovedadesApi = {
   getAgendadas: () =>
     api.get<CasoNovedad[]>('/novedades/agendadas').then((r) => r.data),
 
-  getNotificaciones: () =>
-    api.get<CasoNovedad[]>('/novedades/notificaciones').then((r) => r.data),
+  getNotificaciones: (params?: { desde?: string; hasta?: string; limit?: number; offset?: number }) =>
+    api.get<CasoNovedad[]>('/novedades/notificaciones', { params }).then((r) => r.data),
 
   marcarVista: (id: string, vista: boolean) =>
     api.patch<{ leida: boolean }>(`/novedades/${id}/vista`, { vista }).then((r) => r.data),

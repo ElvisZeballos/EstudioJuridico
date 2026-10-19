@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUrlParams } from '../hooks/useUrlParams';
+import { FilterChips } from '../components/ui/FilterChips';
+import { enRangoUtc } from '../utils/dates';
 import { casosApi, usersApi, clientsApi, juzgadosApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Modal, ConfirmModal } from '../components/ui/Modal';
@@ -36,8 +39,17 @@ export function Casos() {
   const navigate = useNavigate();
   const [casos, setCasos] = useState<Caso[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [juzgadoFilter, setJuzgadoFilter] = useState('');
+  // Filtros guardados en la URL
+  const url = useUrlParams();
+  const searchTerm = url.get('q');
+  const juzgadoFilter = url.get('j');
+  const estadoFilter = url.get('ce');
+  const clienteFilter = url.get('cl');
+  const inicioDesde = url.get('id');
+  const inicioHasta = url.get('ih');
+  const orden = url.get('o', 'recientes');
+  const setSearchTerm = (v: string) => url.set({ q: v });
+  const setJuzgadoFilter = (v: string) => url.set({ j: v });
   const [showModal, setShowModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Caso | null>(null);
   const [abogados, setAbogados] = useState<User[]>([]);
@@ -58,20 +70,47 @@ export function Casos() {
     return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
   }, [casos]);
 
-  const filtered = useMemo(
-    () =>
-      casos.filter((c) => {
-        if (juzgadoFilter && c.juzgado?.id !== juzgadoFilter) return false;
-        const q = searchTerm.toLowerCase();
-        if (!q) return true;
-        return (
-          c.titulo.toLowerCase().includes(q) ||
-          (c.numero && c.numero.toLowerCase().includes(q)) ||
-          c.clientes.some((cl) => `${cl.cliente.nombre} ${cl.cliente.apellido}`.toLowerCase().includes(q))
-        );
-      }),
-    [casos, searchTerm, juzgadoFilter],
-  );
+  const clientesDisponibles = useMemo(() => {
+    const map = new Map<string, string>();
+    casos.forEach((c) => c.clientes.forEach((cl) => map.set(cl.cliente.id, `${cl.cliente.nombre} ${cl.cliente.apellido}`)));
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+  }, [casos]);
+
+  const estadoChips = useMemo(() => {
+    const cuenta = (e: CasoEstado) => casos.filter((c) => getEstadoVisible(c) === e).length;
+    return [
+      { value: '', label: 'Todos', count: casos.length },
+      { value: 'PENDIENTE', label: 'Pendientes', count: cuenta('PENDIENTE') },
+      { value: 'ACTIVO', label: 'Activos', count: cuenta('ACTIVO') },
+      { value: 'CONCLUIDO', label: 'Concluidos', count: cuenta('CONCLUIDO') },
+      { value: 'ARCHIVADO', label: 'Archivados', count: cuenta('ARCHIVADO') },
+    ];
+  }, [casos]);
+
+  const hayFiltros = !!(searchTerm || juzgadoFilter || estadoFilter || clienteFilter || inicioDesde || inicioHasta || orden !== 'recientes');
+
+  const filtered = useMemo(() => {
+    const lista = casos.filter((c) => {
+      if (juzgadoFilter && c.juzgado?.id !== juzgadoFilter) return false;
+      if (estadoFilter && getEstadoVisible(c) !== estadoFilter) return false;
+      if (clienteFilter && !c.clientes.some((cl) => cl.cliente.id === clienteFilter)) return false;
+      if ((inicioDesde || inicioHasta) && !enRangoUtc(c.fechaInicio, inicioDesde, inicioHasta)) return false;
+      const q = searchTerm.toLowerCase();
+      if (!q) return true;
+      return (
+        c.titulo.toLowerCase().includes(q) ||
+        (c.numero && c.numero.toLowerCase().includes(q)) ||
+        c.clientes.some((cl) => `${cl.cliente.nombre} ${cl.cliente.apellido}`.toLowerCase().includes(q))
+      );
+    });
+    return lista.sort((a, b) =>
+      orden === 'titulo'
+        ? a.titulo.localeCompare(b.titulo, 'es')
+        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [casos, searchTerm, juzgadoFilter, estadoFilter, clienteFilter, inicioDesde, inicioHasta, orden]);
 
   const { form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit } =
     useFormState<CasoFormData>(emptyForm);
@@ -186,6 +225,61 @@ export function Casos() {
         {showViewSwitcher && <ViewSwitcher value={viewMode} onChange={setViewMode} />}
       </div>
 
+      {/* Filtros */}
+      {casos.length > 0 && (
+        <div className="space-y-3">
+          <FilterChips options={estadoChips} value={estadoFilter} onChange={(v) => url.set({ ce: v })} />
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+            {clientesDisponibles.length > 0 && (
+              <Select
+                value={clienteFilter}
+                onChange={(e) => url.set({ cl: e.target.value })}
+                options={[{ value: '', label: 'Todos los clientes' }, ...clientesDisponibles]}
+                containerClassName="sm:w-64"
+              />
+            )}
+            <Select
+              value={orden}
+              onChange={(e) => url.set({ o: e.target.value === 'recientes' ? '' : e.target.value })}
+              options={[
+                { value: 'recientes', label: 'Más recientes primero' },
+                { value: 'titulo', label: 'Por título (A-Z)' },
+              ]}
+              containerClassName="sm:w-52"
+            />
+            <label className="flex items-center gap-1.5">
+              Inicio desde
+              <input
+                type="date"
+                value={inicioDesde}
+                max={inicioHasta || undefined}
+                onChange={(e) => url.set({ id: e.target.value })}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </label>
+            <label className="flex items-center gap-1.5">
+              hasta
+              <input
+                type="date"
+                value={inicioHasta}
+                min={inicioDesde || undefined}
+                onChange={(e) => url.set({ ih: e.target.value })}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </label>
+            {hayFiltros && (
+              <button
+                type="button"
+                onClick={() => url.set({ q: '', j: '', ce: '', cl: '', id: '', ih: '', o: '' })}
+                className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="flex justify-center py-16">
@@ -202,6 +296,13 @@ export function Casos() {
               Agregar el primero
             </button>
           )}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+          <p className="text-gray-500 dark:text-gray-400">Ningún caso coincide con los filtros.</p>
+          <button onClick={() => url.set({ q: '', j: '', ce: '', cl: '', id: '', ih: '', o: '' })} className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+            Limpiar filtros
+          </button>
         </div>
       ) : viewMode === 'list' ? (
         <div className="space-y-3">

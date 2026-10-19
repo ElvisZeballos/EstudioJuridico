@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useUrlParams } from '../hooks/useUrlParams';
+import { FilterChips } from '../components/ui/FilterChips';
+import { DateRangeFilter } from '../components/ui/DateRangeFilter';
+import { presetToRange, enRangoUtc, type DatePreset } from '../utils/dates';
 import axios from 'axios';
 import { casosApi, usersApi, clientsApi, juzgadosApi, casoNovedadesApi, googleCalendarApi } from '../services/api';
 import { Card } from '../components/ui/Card';
@@ -55,6 +59,11 @@ export function CasoDetail() {
   const [expandedNovedad, setExpandedNovedad] = useState<string | null>(null);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [previewCtx, setPreviewCtx] = useState<{ files: DriveArchivo[]; idx: number } | null>(null);
+  // Filtros de la línea de novedades (guardados en la URL)
+  const urlFiltros = useUrlParams();
+  const tipoFiltro = urlFiltros.get('nt', 'todas') as 'todas' | 'notificaciones' | 'novedades';
+  const fechaPreset = urlFiltros.get('nf', 'todas') as DatePreset;
+  const fechaRango = presetToRange(fechaPreset, urlFiltros.get('nd'), urlFiltros.get('nh'));
 
   // Edit modal state
   const [showEdit, setShowEdit] = useState(false);
@@ -283,6 +292,10 @@ export function CasoDetail() {
   const estadoEfectivo = getEstadoEfectivo(caso.estado, caso.fechaCierre);
   const casoBloqueado = estadoEfectivo === 'CONCLUIDO' || estadoEfectivo === 'ARCHIVADO';
   const sinVer = novedades.filter((n) => n.esNotificacion && n.leida === false).length;
+  const novedadesFiltradas = novedades.filter((n) => enRangoUtc(n.fecha, fechaRango.desde, fechaRango.hasta));
+  const hayFiltroNov = tipoFiltro !== 'todas' || fechaPreset !== 'todas';
+  const notifFiltradas = tipoFiltro === 'novedades' ? [] : novedadesFiltradas.filter((n) => n.esNotificacion);
+  const manualesFiltradas = tipoFiltro === 'notificaciones' ? [] : novedadesFiltradas.filter((n) => !n.esNotificacion);
   const estadoVisible = getEstadoVisible({ estado: caso.estado, fechaCierre: caso.fechaCierre, notificacionesPendientes: sinVer });
 
   return (
@@ -531,9 +544,45 @@ export function CasoDetail() {
         {/* RIGHT — Notificaciones + Novedades */}
         <div className="lg:sticky lg:top-6 flex flex-col gap-4">
 
+          {/* ── Filtros de la línea de novedades ── */}
+          {novedades.length > 0 && (
+            <Card>
+              <div className="space-y-2">
+                <FilterChips
+                  options={[
+                    { value: 'todas' as const, label: 'Todo' },
+                    { value: 'notificaciones' as const, label: 'Notificaciones', count: novedades.filter((n) => n.esNotificacion).length },
+                    { value: 'novedades' as const, label: 'Novedades', count: manualesFiltradas.length },
+                  ]}
+                  value={tipoFiltro}
+                  onChange={(v) => urlFiltros.set({ nt: v === 'todas' ? '' : v })}
+                />
+                <DateRangeFilter
+                  preset={fechaPreset}
+                  desde={fechaRango.desde}
+                  hasta={fechaRango.hasta}
+                  presets={['todas', 'hoy', 'ayer', '7dias', 'fecha']}
+                  onChange={(f) => urlFiltros.set({ nf: f.preset === 'todas' ? '' : f.preset, nd: f.preset === 'fecha' ? f.desde : '', nh: f.preset === 'fecha' ? f.hasta : '' })}
+                />
+                {hayFiltroNov && notifFiltradas.length + manualesFiltradas.length === 0 && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Nada coincide con el filtro.</p>
+                )}
+                {hayFiltroNov && (
+                  <button
+                    type="button"
+                    onClick={() => urlFiltros.set({ nt: '', nf: '', nd: '', nh: '' })}
+                    className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+            </Card>
+          )}
+
           {/* ── Notificaciones (auto-generadas desde WhatsApp) ── */}
           {(() => {
-            const notificaciones = novedades.filter((n) => n.esNotificacion);
+            const notificaciones = notifFiltradas;
             if (notificaciones.length === 0) return null;
             return (
               <Card>
@@ -674,6 +723,7 @@ export function CasoDetail() {
           })()}
 
           {/* ── Novedades manuales ── */}
+          {(tipoFiltro !== 'notificaciones') && (
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -681,8 +731,8 @@ export function CasoDetail() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
                 Novedades
-                {novedades.filter((n) => !n.esNotificacion).length > 0 && (
-                  <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({novedades.filter((n) => !n.esNotificacion).length})</span>
+                {manualesFiltradas.length > 0 && (
+                  <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({manualesFiltradas.length})</span>
                 )}
               </h3>
               {canEdit && (
@@ -704,7 +754,7 @@ export function CasoDetail() {
               )}
             </div>
 
-            {novedades.filter((n) => !n.esNotificacion).length === 0 ? (
+            {manualesFiltradas.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                   <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -712,8 +762,8 @@ export function CasoDetail() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">Sin novedades</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Registrá audiencias, edictos, diligencias y más.</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{hayFiltroNov ? 'Sin novedades en este filtro' : 'Sin novedades'}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{hayFiltroNov ? 'Probá con otro período.' : 'Registrá audiencias, edictos, diligencias y más.'}</p>
                 </div>
                 {canEdit && !casoBloqueado && (
                   <button onClick={openCreateNovedad} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
@@ -723,7 +773,7 @@ export function CasoDetail() {
               </div>
             ) : (
               <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-                {novedades.filter((n) => !n.esNotificacion).map((n) => {
+                {manualesFiltradas.map((n) => {
                   const isExpanded = expandedNovedad === n.id;
                   return (
                     <div key={n.id} className="border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden">
@@ -798,6 +848,7 @@ export function CasoDetail() {
               </div>
             )}
           </Card>
+          )}
         </div>
 
       </div>{/* end grid */}

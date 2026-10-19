@@ -7,6 +7,9 @@ import { ConfirmModal } from '../components/ui/Modal';
 import { MovimientoForm } from '../components/MovimientoForm';
 import { useFormState } from '../hooks/useFormState';
 import { formatMoney } from '../utils/format';
+import { useUrlParams } from '../hooks/useUrlParams';
+import { DateRangeFilter } from '../components/ui/DateRangeFilter';
+import { presetToRange, enRangoUtc, type DatePreset } from '../utils/dates';
 import type { Movimiento, MovimientoFormData, TipoMovimiento, Caso } from '../types';
 
 const emptyForm: MovimientoFormData = {
@@ -29,6 +32,9 @@ export function Cuenta() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filterTipo, setFilterTipo] = useState<TipoMovimiento | 'TODOS'>('TODOS');
   const [filterOrigen, setFilterOrigen] = useState<OrigenFilter>('TODOS');
+  const url = useUrlParams();
+  const fechaPreset = (url.get('mf', 'todas') as DatePreset);
+  const fechaRango = presetToRange(fechaPreset, url.get('md'), url.get('mh'));
 
   const { form, setForm, isSaving, formError, fieldErrors, setFieldErrors, reset, submit } =
     useFormState<MovimientoFormData>(emptyForm);
@@ -101,9 +107,10 @@ export function Cuenta() {
         if (filterTipo !== 'TODOS' && m.tipo !== filterTipo) return false;
         if (filterOrigen === 'ABOGADO' && m.casoId != null) return false;
         if (filterOrigen !== 'TODOS' && filterOrigen !== 'ABOGADO' && m.casoId !== filterOrigen) return false;
+        if (!enRangoUtc(m.fecha, fechaRango.desde, fechaRango.hasta)) return false;
         return true;
       }),
-    [movimientos, filterTipo, filterOrigen],
+    [movimientos, filterTipo, filterOrigen, fechaRango.desde, fechaRango.hasta],
   );
 
   const stats = useMemo(() => {
@@ -121,7 +128,7 @@ export function Cuenta() {
     };
   }, [filtered]);
 
-  const hasFilters = filterTipo !== 'TODOS' || filterOrigen !== 'TODOS';
+  const hasFilters = filterTipo !== 'TODOS' || filterOrigen !== 'TODOS' || fechaPreset !== 'todas';
 
   if (isLoading) {
     return (
@@ -227,13 +234,20 @@ export function Cuenta() {
 
         {hasFilters && (
           <button
-            onClick={() => { setFilterTipo('TODOS'); setFilterOrigen('TODOS'); }}
+            onClick={() => { setFilterTipo('TODOS'); setFilterOrigen('TODOS'); url.set({ mf: '', md: '', mh: '' }); }}
             className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
           >
             Limpiar filtros
           </button>
         )}
       </div>
+      <DateRangeFilter
+        preset={fechaPreset}
+        desde={fechaRango.desde}
+        hasta={fechaRango.hasta}
+        presets={['todas', 'hoy', 'ayer', '7dias', 'fecha']}
+        onChange={(f) => url.set({ mf: f.preset === 'todas' ? '' : f.preset, md: f.preset === 'fecha' ? f.desde : '', mh: f.preset === 'fecha' ? f.hasta : '' })}
+      />
 
       {/* List */}
       <Card padding="none" className="overflow-hidden">

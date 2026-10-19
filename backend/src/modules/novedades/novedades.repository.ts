@@ -29,12 +29,21 @@ export async function findAgendadas(casoFilter: object) {
   });
 }
 
-export async function findNotificaciones(casoFilter: object) {
+export interface NotificacionesQuery {
+  desde?: Date;
+  hasta?: Date;
+  limit: number;
+  offset: number;
+}
+
+export async function findNotificaciones(casoFilter: object, q: NotificacionesQuery) {
+  const createdAt = q.desde || q.hasta ? { ...(q.desde && { gte: q.desde }), ...(q.hasta && { lte: q.hasta }) } : undefined;
   return prisma.casoNovedad.findMany({
-    where: { active: true, esNotificacion: true, caso: { active: true, ...casoFilter } },
+    where: { active: true, esNotificacion: true, ...(createdAt && { createdAt }), caso: { active: true, ...casoFilter } },
     include: NOVEDAD_INCLUDE_VISTAS,
-    orderBy: { createdAt: 'desc' },
-    take: 20,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: q.limit,
+    skip: q.offset,
   });
 }
 

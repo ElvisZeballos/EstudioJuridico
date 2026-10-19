@@ -17,8 +17,25 @@ export async function getNovedadesAgendadas(req: AuthRequest, res: Response): Pr
 
 export async function getNovedadesNotificaciones(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const novedades = await novedadesService.getNotificaciones(req.user!.id, req.user!.role);
-    logger.info('NOVEDADES: notificaciones consultadas', { ...actor(req), total: novedades.length });
+    // Filtros opcionales: ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD (días de Bolivia, UTC-4) &limit=&offset=
+    const dia = /^\d{4}-\d{2}-\d{2}$/;
+    const desdeStr = typeof req.query.desde === 'string' ? req.query.desde : '';
+    const hastaStr = typeof req.query.hasta === 'string' ? req.query.hasta : '';
+    if ((desdeStr && !dia.test(desdeStr)) || (hastaStr && !dia.test(hastaStr))) {
+      res.status(400).json({ error: 'Las fechas deben tener el formato AAAA-MM-DD' });
+      return;
+    }
+    const desde = desdeStr ? new Date(`${desdeStr}T00:00:00-04:00`) : undefined;
+    const hasta = hastaStr ? new Date(`${hastaStr}T23:59:59.999-04:00`) : undefined;
+    if ((desde && isNaN(desde.getTime())) || (hasta && isNaN(hasta.getTime()))) {
+      res.status(400).json({ error: 'Fecha inválida' });
+      return;
+    }
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? ''), 10) || 100, 1), 500);
+    const offset = Math.max(parseInt(String(req.query.offset ?? ''), 10) || 0, 0);
+
+    const novedades = await novedadesService.getNotificaciones(req.user!.id, req.user!.role, { desde, hasta, limit, offset });
+    logger.info('NOVEDADES: notificaciones consultadas', { ...actor(req), total: novedades.length, desde: desdeStr || undefined, hasta: hastaStr || undefined });
     res.json(novedades);
   } catch (error) {
     logger.error('NOVEDADES: error al listar notificaciones', { ...actor(req), error: (error as Error).message });

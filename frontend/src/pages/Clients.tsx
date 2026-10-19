@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { useUrlParams } from '../hooks/useUrlParams';
+import { FilterChips } from '../components/ui/FilterChips';
 import { useAuth } from '../context/AuthContext';
 import { clientsApi, usersApi } from '../services/api';
 import { Card } from '../components/ui/Card';
@@ -39,7 +41,10 @@ export function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [abogados, setAbogados] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const url = useUrlParams();
+  const searchTerm = url.get('q');
+  const accesoFilter = url.get('acc'); // '' | 'activos' | 'sin'
+  const setSearchTerm = (v: string) => url.set({ q: v });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState<ClientFormData>(emptyForm);
   const [phonePrefix, setPhonePrefix] = useState<string>(DEFAULT_PHONE_COUNTRY.code);
@@ -106,6 +111,8 @@ export function Clients() {
   const filtered = useMemo(
     () =>
       clients.filter((c) => {
+        if (accesoFilter === 'activos' && !c.userActive) return false;
+        if (accesoFilter === 'sin' && c.userActive) return false;
         const q = searchTerm.toLowerCase();
         return (
           c.nombre.toLowerCase().includes(q) ||
@@ -114,8 +121,13 @@ export function Clients() {
           (c.dni && c.dni.toLowerCase().includes(q))
         );
       }),
-    [clients, searchTerm],
+    [clients, searchTerm, accesoFilter],
   );
+  const accesoChips = [
+    { value: '', label: 'Todos', count: clients.length },
+    { value: 'activos', label: 'Activos', count: clients.filter((c) => c.userActive).length },
+    { value: 'sin', label: 'Sin acceso', count: clients.filter((c) => !c.userActive).length },
+  ];
 
   function openCreate() {
     setForm(emptyForm);
@@ -234,6 +246,17 @@ export function Clients() {
         }
       />
 
+      {clients.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterChips options={accesoChips} value={accesoFilter} onChange={(v) => url.set({ acc: v })} />
+          {(accesoFilter || searchTerm) && (
+            <button type="button" onClick={() => url.set({ acc: '', q: '' })} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      )}
+
       {/* List */}
       {isLoading ? (
         <div className="space-y-3">
@@ -251,17 +274,17 @@ export function Clients() {
             </div>
             <div>
               <p className="font-semibold text-gray-900 dark:text-white">
-                {searchTerm ? 'Sin resultados' : 'No hay clientes'}
+                {searchTerm || accesoFilter ? 'Sin resultados' : 'No hay clientes'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {searchTerm
-                  ? 'Intenta con otros términos de búsqueda'
+                {searchTerm || accesoFilter
+                  ? 'Intenta con otros filtros o términos de búsqueda'
                   : canCreate
                   ? 'Crea tu primer cliente haciendo clic en "Nuevo Cliente"'
                   : 'Aún no tienes clientes asignados'}
               </p>
             </div>
-            {canCreate && !searchTerm && (
+            {canCreate && !searchTerm && !accesoFilter && (
               <Button onClick={openCreate} size="sm">Crear cliente</Button>
             )}
           </div>

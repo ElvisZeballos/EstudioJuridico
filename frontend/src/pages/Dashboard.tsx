@@ -6,6 +6,18 @@ import { StatCard, Card } from '../components/ui/Card';
 import type { DashboardStats, CasoNovedad, AdminStats, User, Caso } from '../types';
 import { styles } from './Dashboard.styles';
 import { CASO_ESTADOS, getEstadoVisible } from '../constants/caso';
+import { FilterChips } from '../components/ui/FilterChips';
+import { DateRangeFilter } from '../components/ui/DateRangeFilter';
+import { VerMas } from '../components/ui/VerMas';
+import { presetToRange, enRango, type DatePreset } from '../utils/dates';
+
+const NOTIF_PAGE = 100; // notificaciones que se piden por tanda
+const LISTA_RESUMEN = 8; // filas visibles antes de "Ver más"
+
+type CasoFiltro = 'todos' | 'pendientes' | 'activos' | 'concluidos';
+const CASO_FILTROS: CasoFiltro[] = ['todos', 'pendientes', 'activos', 'concluidos'];
+const NOTIF_PRESETS: DatePreset[] = ['todas', 'hoy', 'ayer', '7dias', 'fecha'];
+const AGENDA_PRESETS: DatePreset[] = ['todas', 'hoy', 'proximos7', 'fecha'];
 
 const IconClients = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,10 +350,30 @@ export function Dashboard() {
   const [casosLoading, setCasosLoading] = useState(true);
   const [notificaciones, setNotificaciones] = useState<CasoNovedad[]>([]);
   const [previewNovedad, setPreviewNovedad] = useState<CasoNovedad | null>(null);
+  const [notifHayMas, setNotifHayMas] = useState(false);
+  const [notifCargandoMas, setNotifCargandoMas] = useState(false);
+  const [notifExpandido, setNotifExpandido] = useState(false);
+  const [casosExpandido, setCasosExpandido] = useState(false);
+  const [agendaExpandida, setAgendaExpandida] = useState(false);
   const [previewCtx, setPreviewCtx] = useState<{ files: { nombre: string; driveId: string; driveUrl: string; tipo: 'pdf' | 'imagen' }[]; idx: number } | null>(null);
 
   const isAdmin = user?.role === 'ADMIN';
   const isAbogado = user?.role === 'ABOGADO' || user?.role === 'AUXILIAR';
+
+  // Filtros guardados en la URL (se conservan al recargar o compartir el enlace)
+  const notifPreset: DatePreset = NOTIF_PRESETS.includes(searchParams.get('nf') as DatePreset) ? (searchParams.get('nf') as DatePreset) : 'todas';
+  const notifRango = presetToRange(notifPreset, searchParams.get('nd') ?? '', searchParams.get('nh') ?? '');
+  const casoFiltro: CasoFiltro = CASO_FILTROS.includes(searchParams.get('ce') as CasoFiltro) ? (searchParams.get('ce') as CasoFiltro) : 'todos';
+  const agendaPreset: DatePreset = AGENDA_PRESETS.includes(searchParams.get('af') as DatePreset) ? (searchParams.get('af') as DatePreset) : 'todas';
+  const agendaRango = presetToRange(agendaPreset, searchParams.get('ad') ?? '', searchParams.get('ah') ?? '');
+
+  function setParams(updates: Record<string, string>) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
+      return next;
+    }, { replace: true });
+  }
 
   useEffect(() => {
     if (searchParams.get('googleConnected')) {
@@ -368,8 +400,39 @@ export function Dashboard() {
     if (isAdmin) return;
     casoNovedadesApi.getAgendadas().then(setAgendadas).catch(() => {});
     googleCalendarApi.getStatus().then((s) => setGoogleConnected(s.connected)).catch(() => {});
-    casoNovedadesApi.getNotificaciones().then(setNotificaciones).catch(() => {});
   }, [isAdmin]);
+
+  // Notificaciones: se vuelven a pedir cuando cambia el filtro de fecha
+  useEffect(() => {
+    if (isAdmin) return;
+    let cancelado = false;
+    casoNovedadesApi
+      .getNotificaciones({ desde: notifRango.desde || undefined, hasta: notifRango.hasta || undefined, limit: NOTIF_PAGE })
+      .then((r) => {
+        if (cancelado) return;
+        setNotificaciones(r);
+        setNotifHayMas(r.length === NOTIF_PAGE);
+        setNotifExpandido(false);
+      })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [isAdmin, notifRango.desde, notifRango.hasta]);
+
+  async function cargarMasNotificaciones() {
+    setNotifCargandoMas(true);
+    try {
+      const r = await casoNovedadesApi.getNotificaciones({
+        desde: notifRango.desde || undefined,
+        hasta: notifRango.hasta || undefined,
+        limit: NOTIF_PAGE,
+        offset: notificaciones.length,
+      });
+      setNotificaciones((prev) => [...prev, ...r.filter((x) => !prev.some((p) => p.id === x.id))]);
+      setNotifHayMas(r.length === NOTIF_PAGE);
+    } finally {
+      setNotifCargandoMas(false);
+    }
+  }
 
   useEffect(() => {
     if (isAdmin) { setCasosLoading(false); return; }
@@ -412,14 +475,35 @@ export function Dashboard() {
   const casosActivos = casos.filter(c => getEstadoVisible(c) === 'ACTIVO');
   const casosPendientes = casos.filter(c => getEstadoVisible(c) === 'PENDIENTE');
   const casosConcluidos = casos.filter(c => getEstadoVisible(c) === 'CONCLUIDO');
-  // Los pendientes primero, para que nunca queden fuera de los 8 visibles
-  const casosVisibles = [...casosPendientes, ...casosActivos].slice(0, 8);
+  const casosArchivados = casos.filter(c => getEstadoVisible(c) === 'ARCHIVADO');
+  // Los pendientes primero, para que nunca queden fuera de los visibles
+  const casosPorFiltro: Record<CasoFiltro, Caso[]> = {
+    todos: [...casosPendientes, ...casosActivos, ...casosConcluidos, ...casosArchivados],
+    pendientes: casosPendientes,
+    activos: casosActivos,
+    concluidos: casosConcluidos,
+  };
+  const casosLista = casosPorFiltro[casoFiltro];
+  const casosVisibles = casosExpandido ? casosLista : casosLista.slice(0, LISTA_RESUMEN);
+  const casoChips = [
+    { value: 'todos' as const, label: 'Todos', count: casosPorFiltro.todos.length },
+    { value: 'pendientes' as const, label: 'Pendientes', count: casosPendientes.length },
+    { value: 'activos' as const, label: 'Activos', count: casosActivos.length },
+    { value: 'concluidos' as const, label: 'Concluidos', count: casosConcluidos.length },
+  ];
+  const notifVisibles = notifExpandido ? notificaciones : notificaciones.slice(0, LISTA_RESUMEN);
   const notifNuevas = notificaciones.filter(n => n.leida === false).length;
 
   const proximosEventos = agendadas
     .filter(n => n.fechaAgendada && new Date(n.fechaAgendada) >= now)
-    .sort((a, b) => new Date(a.fechaAgendada!).getTime() - new Date(b.fechaAgendada!).getTime())
-    .slice(0, 6);
+    .sort((a, b) => new Date(a.fechaAgendada!).getTime() - new Date(b.fechaAgendada!).getTime());
+  // Agenda: por defecto desde hoy en adelante; con filtro, solo el rango elegido
+  const agendaFiltrada = agendaPreset === 'todas'
+    ? proximosEventos
+    : agendadas
+        .filter(n => n.fechaAgendada && enRango(n.fechaAgendada, agendaRango.desde, agendaRango.hasta))
+        .sort((a, b) => new Date(a.fechaAgendada!).getTime() - new Date(b.fechaAgendada!).getTime());
+  const agendaVisible = agendaExpandida ? agendaFiltrada : agendaFiltrada.slice(0, 6);
 
   return (
     <div className="space-y-6">
@@ -504,7 +588,7 @@ export function Dashboard() {
       {isAbogado ? (
         <>
         {/* Notifications panel */}
-        {notificaciones.length > 0 && (
+        {(notificaciones.length > 0 || notifPreset !== 'todas') && (
           <Card>
             <div className="flex items-center gap-2.5 mb-4">
               <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
@@ -517,11 +601,22 @@ export function Dashboard() {
                 </span>
               )}
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
-                {notificaciones.length}
+                {notificaciones.length}{notifHayMas ? '+' : ''}
               </span>
             </div>
+            <DateRangeFilter
+              preset={notifPreset}
+              desde={notifRango.desde}
+              hasta={notifRango.hasta}
+              presets={NOTIF_PRESETS}
+              onChange={(f) => setParams({ nf: f.preset === 'todas' ? '' : f.preset, nd: f.preset === 'fecha' ? f.desde : '', nh: f.preset === 'fecha' ? f.hasta : '' })}
+              className="mb-3"
+            />
+            {notificaciones.length === 0 && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No hay notificaciones en ese período.</p>
+            )}
             <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-              {notificaciones.slice(0, 8).map(n => (
+              {notifVisibles.map(n => (
                 <button
                   key={n.id}
                   onClick={() => setPreviewNovedad(n)}
@@ -546,6 +641,24 @@ export function Dashboard() {
                 </button>
               ))}
             </div>
+            <VerMas
+              expandido={notifExpandido}
+              total={notificaciones.length}
+              visibles={LISTA_RESUMEN}
+              onToggle={() => setNotifExpandido(v => !v)}
+            />
+            {notifExpandido && notifHayMas && (
+              <div className="pt-1 text-center">
+                <button
+                  type="button"
+                  onClick={cargarMasNotificaciones}
+                  disabled={notifCargandoMas}
+                  className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline disabled:opacity-50"
+                >
+                  {notifCargandoMas ? 'Cargando...' : 'Cargar notificaciones más antiguas'}
+                </button>
+              </div>
+            )}
           </Card>
         )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -561,7 +674,7 @@ export function Dashboard() {
                   <div>
                     <h2 className="font-semibold text-gray-900 dark:text-white">Mis Casos</h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {casosLoading ? 'Cargando...' : `${casosActivos.length + casosPendientes.length} activos y pendientes`}
+                      {casosLoading ? 'Cargando...' : `${casosActivos.length + casosPendientes.length} activos y pendientes · ${casos.length} en total`}
                     </p>
                   </div>
                 </div>
@@ -572,6 +685,15 @@ export function Dashboard() {
                   Ver todos <IconArrowRight />
                 </Link>
               </div>
+
+              {!casosLoading && casos.length > 0 && (
+                <FilterChips
+                  options={casoChips}
+                  value={casoFiltro}
+                  onChange={(v) => { setParams({ ce: v === 'todos' ? '' : v }); setCasosExpandido(false); }}
+                  className="mb-3"
+                />
+              )}
 
               {casosLoading ? (
                 <div className="space-y-3">
@@ -586,7 +708,7 @@ export function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No hay casos activos o pendientes</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No hay casos en esta categoría</p>
                   <Link to="/casos" className="text-indigo-600 dark:text-indigo-400 text-sm hover:underline mt-1 inline-block font-medium">
                     Ir a casos →
                   </Link>
@@ -634,15 +756,13 @@ export function Dashboard() {
                 </div>
               )}
 
-              {!casosLoading && casosConcluidos.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <Link
-                    to="/casos"
-                    className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                  >
-                    + {casosConcluidos.length} casos concluidos
-                  </Link>
-                </div>
+              {!casosLoading && (
+                <VerMas
+                  expandido={casosExpandido}
+                  total={casosLista.length}
+                  visibles={LISTA_RESUMEN}
+                  onToggle={() => setCasosExpandido(v => !v)}
+                />
               )}
             </Card>
           </div>
@@ -658,6 +778,17 @@ export function Dashboard() {
                 </div>
                 <h2 className="font-semibold text-gray-900 dark:text-white">Próxima Agenda</h2>
               </div>
+              {googleConnected && (
+                <DateRangeFilter
+                  preset={agendaPreset}
+                  desde={agendaRango.desde}
+                  hasta={agendaRango.hasta}
+                  presets={AGENDA_PRESETS}
+                  permitirFuturo
+                  onChange={(f) => { setParams({ af: f.preset === 'todas' ? '' : f.preset, ad: f.preset === 'fecha' ? f.desde : '', ah: f.preset === 'fecha' ? f.hasta : '' }); setAgendaExpandida(false); }}
+                  className="mb-3"
+                />
+              )}
 
               {!googleConnected ? (
                 <div className="text-center py-4">
@@ -674,13 +805,13 @@ export function Dashboard() {
                     Conectar Google Calendar
                   </button>
                 </div>
-              ) : proximosEventos.length === 0 ? (
+              ) : agendaFiltrada.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
-                  No hay eventos próximos agendados
+                  {agendaPreset === 'todas' ? 'No hay eventos próximos agendados' : 'No hay eventos en ese período'}
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {proximosEventos.map(ev => {
+                  {agendaVisible.map(ev => {
                     const fecha = new Date(ev.fechaAgendada!);
                     const isHoy = boliviaDateKey(fecha) === boliviaDateKey(now);
                     const manana = new Date(now);
@@ -717,6 +848,12 @@ export function Dashboard() {
                       </div>
                     );
                   })}
+                  <VerMas
+                    expandido={agendaExpandida}
+                    total={agendaFiltrada.length}
+                    visibles={6}
+                    onToggle={() => setAgendaExpandida(v => !v)}
+                  />
                 </div>
               )}
             </Card>
@@ -758,7 +895,7 @@ export function Dashboard() {
           {/* Stat cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatCard title="Casos Activos"   value={casosLoading ? 0 : casosActivos.length}    color="green"  subtitle="en curso"    icon={<IconBriefcase />} />
-            <StatCard title="Pendientes"       value={casosLoading ? 0 : casosPendientes.length} color="amber"  subtitle="en espera"   icon={<IconBriefcase />} />
+            <StatCard title="Archivados"       value={casosLoading ? 0 : casosArchivados.length} color="indigo" subtitle="en archivo"  icon={<IconBriefcase />} />
             <StatCard title="Concluidos"       value={casosLoading ? 0 : casosConcluidos.length} color="blue"   subtitle="finalizados" icon={<IconBriefcase />} />
             <StatCard title="Notificaciones"   value={notificaciones.length}                     color="indigo" subtitle="recibidas"   icon={<IconBell />} />
           </div>
@@ -779,6 +916,15 @@ export function Dashboard() {
                 </Link>
               </div>
 
+              {!casosLoading && casos.length > 0 && (
+                <FilterChips
+                  options={casoChips}
+                  value={casoFiltro}
+                  onChange={(v) => { setParams({ ce: v === 'todos' ? '' : v }); setCasosExpandido(false); }}
+                  className="mb-3"
+                />
+              )}
+
               {casosLoading ? (
                 <div className="space-y-3">
                   {[1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)}
@@ -789,8 +935,8 @@ export function Dashboard() {
                     <IconBriefcase />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Sin casos activos</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Tu abogado te asignará casos próximamente.</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{casos.length === 0 ? 'Sin casos activos' : 'No hay casos en esta categoría'}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{casos.length === 0 ? 'Tu abogado te asignará casos próximamente.' : 'Probá con otro filtro.'}</p>
                   </div>
                 </div>
               ) : (
@@ -823,12 +969,13 @@ export function Dashboard() {
                 </div>
               )}
 
-              {!casosLoading && casosConcluidos.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <Link to="/casos" className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                    + {casosConcluidos.length} caso{casosConcluidos.length !== 1 ? 's' : ''} concluido{casosConcluidos.length !== 1 ? 's' : ''}
-                  </Link>
-                </div>
+              {!casosLoading && (
+                <VerMas
+                  expandido={casosExpandido}
+                  total={casosLista.length}
+                  visibles={LISTA_RESUMEN}
+                  onToggle={() => setCasosExpandido(v => !v)}
+                />
               )}
             </Card>
 
@@ -836,7 +983,7 @@ export function Dashboard() {
             <div className="space-y-5">
 
               {/* Próximos eventos */}
-              {proximosEventos.length > 0 && (
+              {agendaFiltrada.length > 0 && (
                 <Card>
                   <div className="flex items-center gap-2.5 mb-4">
                     <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
@@ -845,7 +992,7 @@ export function Dashboard() {
                     <h2 className="font-semibold text-gray-900 dark:text-white">Próximos Eventos</h2>
                   </div>
                   <div className="space-y-3">
-                    {proximosEventos.slice(0, 4).map(ev => {
+                    {agendaFiltrada.slice(0, 4).map(ev => {
                       const fecha = new Date(ev.fechaAgendada!);
                       const isHoy = boliviaDateKey(fecha) === boliviaDateKey(now);
                       const manana = new Date(now);
@@ -882,7 +1029,7 @@ export function Dashboard() {
               )}
 
               {/* Notificaciones recientes */}
-              {notificaciones.length > 0 && (
+              {(notificaciones.length > 0 || notifPreset !== 'todas') && (
                 <Card>
                   <div className="flex items-center gap-2.5 mb-4">
                     <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
@@ -890,11 +1037,22 @@ export function Dashboard() {
                     </div>
                     <h2 className="font-semibold text-gray-900 dark:text-white">Notificaciones</h2>
                     <span className="ml-auto text-xs font-medium text-white bg-amber-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0">
-                      {notificaciones.length}
+                      {notificaciones.length}{notifHayMas ? '+' : ''}
                     </span>
                   </div>
+                  <DateRangeFilter
+                    preset={notifPreset}
+                    desde={notifRango.desde}
+                    hasta={notifRango.hasta}
+                    presets={NOTIF_PRESETS}
+                    onChange={(f) => setParams({ nf: f.preset === 'todas' ? '' : f.preset, nd: f.preset === 'fecha' ? f.desde : '', nh: f.preset === 'fecha' ? f.hasta : '' })}
+                    className="mb-3"
+                  />
+                  {notificaciones.length === 0 && (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No hay notificaciones en ese período.</p>
+                  )}
                   <div className="space-y-2">
-                    {notificaciones.slice(0, 5).map(n => (
+                    {(notifExpandido ? notificaciones : notificaciones.slice(0, 5)).map(n => (
                       <button
                         key={n.id}
                         onClick={() => setPreviewNovedad(n)}
@@ -914,6 +1072,24 @@ export function Dashboard() {
                       </button>
                     ))}
                   </div>
+                  <VerMas
+                    expandido={notifExpandido}
+                    total={notificaciones.length}
+                    visibles={5}
+                    onToggle={() => setNotifExpandido(v => !v)}
+                  />
+                  {notifExpandido && notifHayMas && (
+                    <div className="pt-1 text-center">
+                      <button
+                        type="button"
+                        onClick={cargarMasNotificaciones}
+                        disabled={notifCargandoMas}
+                        className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline disabled:opacity-50"
+                      >
+                        {notifCargandoMas ? 'Cargando...' : 'Cargar notificaciones más antiguas'}
+                      </button>
+                    </div>
+                  )}
                 </Card>
               )}
 

@@ -91,10 +91,10 @@ export async function getAgendadas(userId: string, role: string) {
   return novedadesRepository.findAgendadas(casoFilter);
 }
 
-export async function getNotificaciones(userId: string, role: string) {
+export async function getNotificaciones(userId: string, role: string, query: novedadesRepository.NotificacionesQuery) {
   const casoFilter = await buildCasoFilter(userId, role);
   if (casoFilter === null) return [];
-  const novedades = await novedadesRepository.findNotificaciones(casoFilter);
+  const novedades = await novedadesRepository.findNotificaciones(casoFilter, query);
   return anotarVista(novedades, await getAbogadosQueRepresenta(userId, role));
 }
 
