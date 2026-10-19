@@ -54,6 +54,7 @@ model User {
   whatsappMessages   WhatsAppMessage[]
   auxiliares         AbogadoAuxiliar[] @relation("AbogadoAuxiliares")
   abogados           AbogadoAuxiliar[] @relation("AuxiliarAbogados")
+  novedadesVistas    NovedadVista[]
 }
 
 model AbogadoAuxiliar {
@@ -247,6 +248,19 @@ model CasoNovedad {
   active                Boolean   @default(true)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+  vistas                NovedadVista[]
+}
+
+// Una fila = "este abogado (o su auxiliar) ya vio esta notificación".
+// Sin fila = sin ver. El estado "Pendiente" de un caso se calcula con esto.
+model NovedadVista {
+  novedadId String
+  novedad   CasoNovedad @relation(fields: [novedadId], references: [id], onDelete: Cascade)
+  abogadoId String
+  abogado   User        @relation(fields: [abogadoId], references: [id])
+  vistaAt   DateTime    @default(now())
+
+  @@id([novedadId, abogadoId])
 }
 
 model Feriado {

@@ -140,6 +140,7 @@ export interface CasoNovedad {
   fechaAgendada?: string | null;
   googleCalendarEventId?: string | null;
   esNotificacion?: boolean;
+  leida?: boolean; // solo abogados/auxiliares: false = sin ver
   archivos?: string | null;
   active: boolean;
   createdAt: string;
@@ -188,6 +189,7 @@ export interface Caso {
   }[];
   abogadosContraparte: CasoAbogadoContraparte[];
   demandados: CasoDemandado[];
+  notificacionesPendientes?: number; // notificaciones sin ver (abogados/auxiliares)
 }
 
 export interface CasoFormData {

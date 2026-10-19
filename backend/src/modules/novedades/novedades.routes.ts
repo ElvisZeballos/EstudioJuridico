@@ -19,3 +19,4 @@ export const novedadesRouter = Router();
 novedadesRouter.use(authenticateToken);
 novedadesRouter.get('/agendadas', novedadesController.getNovedadesAgendadas);
 novedadesRouter.get('/notificaciones', novedadesController.getNovedadesNotificaciones);
+novedadesRouter.patch('/:id/vista', requireRole('ABOGADO', 'AUXILIAR'), novedadesController.marcarVista);

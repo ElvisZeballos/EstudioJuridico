@@ -5,7 +5,7 @@ import { clientsApi, casoNovedadesApi, googleCalendarApi, adminApi, casosApi } f
 import { StatCard, Card } from '../components/ui/Card';
 import type { DashboardStats, CasoNovedad, AdminStats, User, Caso } from '../types';
 import { styles } from './Dashboard.styles';
-import { CASO_ESTADOS } from '../constants/caso';
+import { CASO_ESTADOS, getEstadoVisible } from '../constants/caso';
 
 const IconClients = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,6 +376,22 @@ export function Dashboard() {
     casosApi.getAll().then(setCasos).catch(() => {}).finally(() => setCasosLoading(false));
   }, [isAdmin]);
 
+  async function cambiarVista(novedadId: string, vista: boolean) {
+    try {
+      await casoNovedadesApi.marcarVista(novedadId, vista);
+      setNotificaciones(prev => prev.map(x => (x.id === novedadId ? { ...x, leida: vista } : x)));
+      setPreviewNovedad(prev => (prev && prev.id === novedadId ? { ...prev, leida: vista } : prev));
+      casosApi.getAll().then(setCasos).catch(() => {}); // recalcula Pendientes
+    } catch {
+      // silencioso: se puede reintentar con el check
+    }
+  }
+
+  // Abrir una notificación sin ver la marca como vista
+  useEffect(() => {
+    if (previewNovedad && previewNovedad.leida === false) cambiarVista(previewNovedad.id, true);
+  }, [previewNovedad?.id]);
+
   async function handleGoogleConnect() {
     const { url } = await googleCalendarApi.getConnectUrl();
     window.location.href = url;
@@ -393,10 +409,12 @@ export function Dashboard() {
   };
   const roleLabel = roleLabelMap[user?.role ?? 'CLIENTE'];
 
-  const casosActivos = casos.filter(c => c.estado === 'ACTIVO');
-  const casosPendientes = casos.filter(c => c.estado === 'PENDIENTE');
-  const casosConcluidos = casos.filter(c => c.estado === 'CONCLUIDO');
-  const casosVisibles = [...casosActivos, ...casosPendientes].slice(0, 8);
+  const casosActivos = casos.filter(c => getEstadoVisible(c) === 'ACTIVO');
+  const casosPendientes = casos.filter(c => getEstadoVisible(c) === 'PENDIENTE');
+  const casosConcluidos = casos.filter(c => getEstadoVisible(c) === 'CONCLUIDO');
+  // Los pendientes primero, para que nunca queden fuera de los 8 visibles
+  const casosVisibles = [...casosPendientes, ...casosActivos].slice(0, 8);
+  const notifNuevas = notificaciones.filter(n => n.leida === false).length;
 
   const proximosEventos = agendadas
     .filter(n => n.fechaAgendada && new Date(n.fechaAgendada) >= now)
@@ -462,7 +480,7 @@ export function Dashboard() {
             title="Casos Pendientes"
             value={casosLoading ? 0 : casosPendientes.length}
             color="amber"
-            subtitle={casosLoading ? 'Cargando...' : 'por atender'}
+            subtitle={casosLoading ? 'Cargando...' : 'con notificaciones sin ver'}
             icon={<IconBriefcase />}
           />
           <StatCard
@@ -493,6 +511,11 @@ export function Dashboard() {
                 <IconBell />
               </div>
               <h2 className="font-semibold text-gray-900 dark:text-white flex-1">Notificaciones</h2>
+              {notifNuevas > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white">
+                  {notifNuevas} nueva{notifNuevas !== 1 ? 's' : ''}
+                </span>
+              )}
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
                 {notificaciones.length}
               </span>
@@ -504,9 +527,9 @@ export function Dashboard() {
                   onClick={() => setPreviewNovedad(n)}
                   className="w-full flex items-start gap-3 py-3 hover:bg-amber-50 dark:hover:bg-amber-900/10 -mx-3 px-3 rounded-xl transition-colors text-left group"
                 >
-                  <span className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-amber-400" />
+                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${n.leida === false ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
+                    <p className={`text-sm truncate group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors ${n.leida === false ? 'font-semibold text-gray-900 dark:text-white' : 'font-normal text-gray-500 dark:text-gray-400'}`}>
                       {n.titulo}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
@@ -571,7 +594,7 @@ export function Dashboard() {
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
                   {casosVisibles.map(caso => {
-                    const estado = ESTADO_CONFIG[caso.estado];
+                    const estado = ESTADO_CONFIG[getEstadoVisible(caso)];
                     const clienteNames = caso.clientes
                       .map(c => `${c.cliente.nombre} ${c.cliente.apellido}`)
                       .join(', ');
@@ -587,6 +610,11 @@ export function Dashboard() {
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                               {caso.titulo}
                             </p>
+                            {(caso.notificacionesPendientes ?? 0) > 0 && (
+                              <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-bold bg-amber-500 text-white">
+                                {caso.notificacionesPendientes} sin ver
+                              </span>
+                            )}
                             <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${estado.classes}`}>
                               {estado.label}
                             </span>
@@ -768,7 +796,7 @@ export function Dashboard() {
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
                   {casosVisibles.map(caso => {
-                    const estado = ESTADO_CONFIG[caso.estado];
+                    const estado = ESTADO_CONFIG[getEstadoVisible(caso)];
                     return (
                       <Link
                         key={caso.id}
@@ -1044,6 +1072,17 @@ export function Dashboard() {
               </div>
               {/* Footer */}
               <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100 dark:border-gray-700 shrink-0">
+                {previewNovedad.leida !== undefined && (
+                  <button
+                    onClick={() => cambiarVista(previewNovedad.id, !previewNovedad.leida)}
+                    className="mr-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <svg className={`w-4 h-4 ${previewNovedad.leida ? 'text-emerald-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {previewNovedad.leida ? 'Vista · marcar como no vista' : 'Marcar como vista'}
+                  </button>
+                )}
                 {previewNovedad.caso && (
                   <Link
                     to={`/casos/${previewNovedad.casoId}`}

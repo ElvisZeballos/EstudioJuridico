@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { useFormState } from '../hooks/useFormState';
-import { estadoInfo, CASO_ESTADOS, getEstadoEfectivo } from '../constants/caso';
+import { estadoInfo, CASO_ESTADOS_MANUALES, getEstadoVisible } from '../constants/caso';
 import { toggleId } from '../utils/format';
 import { ClienteMultiSelect } from '../components/ClienteMultiSelect';
 import { ViewSwitcher } from '../components/ui/ViewSwitcher';
@@ -29,7 +29,7 @@ const emptyForm: CasoFormData = {
   demandados: [],
 };
 
-const ESTADO_OPTIONS = CASO_ESTADOS.map((e) => ({ value: e.value, label: e.label }));
+const ESTADO_OPTIONS = CASO_ESTADOS_MANUALES.map((e) => ({ value: e.value, label: e.label }));
 
 export function Casos() {
   const { user } = useAuth();
@@ -206,7 +206,7 @@ export function Casos() {
       ) : viewMode === 'list' ? (
         <div className="space-y-3">
           {filtered.map((c) => {
-            const estado = estadoInfo(getEstadoEfectivo(c.estado, c.fechaCierre));
+            const estado = estadoInfo(getEstadoVisible(c));
             return (
               <div
                 key={c.id}
@@ -221,6 +221,11 @@ export function Casos() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold text-gray-900 dark:text-white truncate">{c.titulo}</h3>
+                    {(c.notificacionesPendientes ?? 0) > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white">
+                        {c.notificacionesPendientes} sin ver
+                      </span>
+                    )}
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.color}`}>
                       {estado.label}
                     </span>
@@ -252,7 +257,7 @@ export function Casos() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => {
-            const estado = estadoInfo(getEstadoEfectivo(c.estado, c.fechaCierre));
+            const estado = estadoInfo(getEstadoVisible(c));
             return (
               <div
                 key={c.id}
@@ -263,6 +268,11 @@ export function Casos() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-gray-900 dark:text-white truncate">{c.titulo}</h3>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {(c.notificacionesPendientes ?? 0) > 0 && (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white">
+                          {c.notificacionesPendientes} sin ver
+                        </span>
+                      )}
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${estado.color}`}>
                         {estado.label}
                       </span>

@@ -2,6 +2,7 @@ import { logger } from '../../config/logger';
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '../../infrastructure/googleCalendar';
 import * as novedadesRepository from './novedades.repository';
 import { getEstadoEfectivo } from '../../shared/casoEstado';
+import { getAbogadosQueRepresenta, alcanceEnCaso, estaSinVer } from '../../shared/novedadVista';
 
 /**
  * Convierte un string "AAAA-MM-DDTHH:mm" (sin zona horaria, del input datetime-local)
@@ -52,6 +53,38 @@ async function syncToGoogleCalendar(
   }
 }
 
+/** Agrega `leida` a cada notificación (solo para abogados/auxiliares) y quita los datos internos. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function anotarVista(novedades: any[], representados: string[]) {
+  return novedades.map(({ vistas, caso, ...resto }) => {
+    const abogadosDelCaso: string[] = (caso?.abogados ?? []).map((a: { abogadoId: string }) => a.abogadoId);
+    const alcance = alcanceEnCaso(representados, abogadosDelCaso);
+    const vistaPor: string[] = (vistas ?? []).map((v: { abogadoId: string }) => v.abogadoId);
+    return {
+      ...resto,
+      caso: caso ? { id: caso.id, titulo: caso.titulo } : caso,
+      ...(resto.esNotificacion && alcance.length > 0 ? { leida: !estaSinVer(alcance, vistaPor) } : {}),
+    };
+  });
+}
+
+export async function marcarVista(id: string, vista: boolean, userId: string, role: string, actorLog: object) {
+  const novedad = await novedadesRepository.findByIdConVistas(id);
+  if (!novedad || !novedad.active || !novedad.caso.active || !novedad.esNotificacion) {
+    return { error: 'Notificación no encontrada', status: 404 as const };
+  }
+
+  const representados = await getAbogadosQueRepresenta(userId, role);
+  const alcance = alcanceEnCaso(representados, novedad.caso.abogados.map((a) => a.abogadoId));
+  if (alcance.length === 0) return { error: 'Notificación no encontrada', status: 404 as const };
+
+  if (vista) await novedadesRepository.marcarVista(id, alcance);
+  else await novedadesRepository.desmarcarVista(id, alcance);
+
+  logger.info('NOVEDADES: visto actualizado', { ...actorLog, novedadId: id, vista });
+  return { leida: vista };
+}
+
 export async function getAgendadas(userId: string, role: string) {
   const casoFilter = await buildCasoFilter(userId, role);
   if (casoFilter === null) return [];
@@ -61,7 +94,8 @@ export async function getAgendadas(userId: string, role: string) {
 export async function getNotificaciones(userId: string, role: string) {
   const casoFilter = await buildCasoFilter(userId, role);
   if (casoFilter === null) return [];
-  return novedadesRepository.findNotificaciones(casoFilter);
+  const novedades = await novedadesRepository.findNotificaciones(casoFilter);
+  return anotarVista(novedades, await getAbogadosQueRepresenta(userId, role));
 }
 
 export async function getByCaso(casoId: string, userId: string, role: string) {
@@ -86,7 +120,7 @@ export async function getByCaso(casoId: string, userId: string, role: string) {
   }
 
   const novedades = await novedadesRepository.findByCaso(casoId);
-  return { novedades };
+  return { novedades: anotarVista(novedades, await getAbogadosQueRepresenta(userId, role)) };
 }
 
 export async function create(

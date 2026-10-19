@@ -246,6 +246,9 @@ export const casoNovedadesApi = {
 
   getNotificaciones: () =>
     api.get<CasoNovedad[]>('/novedades/notificaciones').then((r) => r.data),
+
+  marcarVista: (id: string, vista: boolean) =>
+    api.patch<{ leida: boolean }>(`/novedades/${id}/vista`, { vista }).then((r) => r.data),
 };
 
 // Google Calendar endpoints

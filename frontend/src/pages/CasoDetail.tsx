@@ -7,14 +7,14 @@ import { Button } from '../components/ui/Button';
 import { Modal, ConfirmModal } from '../components/ui/Modal';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import { ESTADO_COLORS, ESTADO_LABELS, CASO_ESTADOS, getEstadoEfectivo } from '../constants/caso';
+import { ESTADO_COLORS, ESTADO_LABELS, CASO_ESTADOS_MANUALES, getEstadoEfectivo, getEstadoVisible } from '../constants/caso';
 import { toggleId } from '../utils/format';
 import { ClienteMultiSelect } from '../components/ClienteMultiSelect';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import type { Caso, CasoEstado, CasoFormData, CasoHistorialEntry, CasoNovedad, CasoNovedadFormData, DriveArchivo, User, Client, Juzgado } from '../types';
 
 
-const ESTADO_OPTIONS = CASO_ESTADOS.map((e) => ({ value: e.value, label: e.label }));
+const ESTADO_OPTIONS = CASO_ESTADOS_MANUALES.map((e) => ({ value: e.value, label: e.label }));
 const BOLIVIA_TZ = 'America/La_Paz';
 
 /** Clave "AAAA-MM-DD" del día actual en Bolivia, sin depender del huso del navegador. */
@@ -72,6 +72,23 @@ export function CasoDetail() {
   const [novedadFieldErrors, setNovedadFieldErrors] = useState<Record<string, string>>({});
 
   const canEdit = user?.role === 'ABOGADO';
+  const puedeMarcarVista = user?.role === 'ABOGADO' || user?.role === 'AUXILIAR';
+
+  async function cambiarVista(novedadId: string, vista: boolean) {
+    try {
+      await casoNovedadesApi.marcarVista(novedadId, vista);
+      setNovedades((prev) => prev.map((n) => (n.id === novedadId ? { ...n, leida: vista } : n)));
+    } catch {
+      // silencioso: se puede reintentar con el check
+    }
+  }
+
+  // Expandir una notificación sin ver la marca como vista
+  useEffect(() => {
+    if (!expandedNovedad || !puedeMarcarVista) return;
+    const n = novedades.find((x) => x.id === expandedNovedad);
+    if (n?.esNotificacion && n.leida === false) cambiarVista(n.id, true);
+  }, [expandedNovedad]);
 
   async function load() {
     if (!id) return;
@@ -265,6 +282,8 @@ export function CasoDetail() {
 
   const estadoEfectivo = getEstadoEfectivo(caso.estado, caso.fechaCierre);
   const casoBloqueado = estadoEfectivo === 'CONCLUIDO' || estadoEfectivo === 'ARCHIVADO';
+  const sinVer = novedades.filter((n) => n.esNotificacion && n.leida === false).length;
+  const estadoVisible = getEstadoVisible({ estado: caso.estado, fechaCierre: caso.fechaCierre, notificacionesPendientes: sinVer });
 
   return (
     <div className="space-y-6">
@@ -323,8 +342,8 @@ export function CasoDetail() {
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{caso.descripcion}</p>
                 )}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${ESTADO_COLORS[estadoEfectivo]}`}>
-                    {ESTADO_LABELS[estadoEfectivo]}
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${ESTADO_COLORS[estadoVisible]}`}>
+                    {ESTADO_LABELS[estadoVisible]}
                   </span>
                   {caso.numero && (
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
@@ -526,6 +545,9 @@ export function CasoDetail() {
                     Notificaciones
                   </h3>
                   <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({notificaciones.length})</span>
+                  {sinVer > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">{sinVer} sin ver</span>
+                  )}
                 </div>
                 <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
                   {notificaciones.map((n) => {
@@ -533,7 +555,7 @@ export function CasoDetail() {
                     let archivos: DriveArchivo[] = [];
                     try { archivos = n.archivos ? JSON.parse(n.archivos) : []; } catch { archivos = []; }
                     return (
-                      <div key={n.id} className="border border-amber-100 dark:border-amber-900/40 rounded-xl overflow-hidden">
+                      <div key={n.id} className={`border rounded-xl overflow-hidden ${n.leida === false ? 'border-amber-300 border-l-4 border-l-amber-500 dark:border-amber-700 bg-amber-50/40 dark:bg-amber-900/10' : 'border-amber-100 dark:border-amber-900/40'}`}>
                         <button
                           className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-colors"
                           onClick={() => setExpandedNovedad(isExpanded ? null : n.id)}
@@ -544,7 +566,7 @@ export function CasoDetail() {
                             </svg>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{n.titulo}</p>
+                            <p className={`text-sm truncate ${n.leida === false ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-600 dark:text-gray-400'}`}>{n.titulo}</p>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-xs text-gray-400 dark:text-gray-500">
                                 {new Date(n.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}
@@ -577,6 +599,17 @@ export function CasoDetail() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {puedeMarcarVista && n.leida !== undefined && (
+                              <button
+                                onClick={() => cambiarVista(n.id, !n.leida)}
+                                title={n.leida ? 'Marcar como no vista' : 'Marcar como vista'}
+                                className={`p-1.5 rounded-lg transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-900/20 ${n.leida ? 'text-emerald-500' : 'text-gray-400 hover:text-emerald-600'}`}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                            )}
                             {canEdit && (
                               <button
                                 onClick={() => setDeleteNovedad(n.id)}

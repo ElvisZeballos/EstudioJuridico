@@ -2,6 +2,7 @@ import { CasoEstado } from '@prisma/client';
 import { logger } from '../../config/logger';
 import { isValidNurej, normalizeNurej } from '../../shared/validators';
 import * as casosRepository from './casos.repository';
+import { contarSinVerPorCaso } from '../../shared/novedadVista';
 
 const ESTADO_LABELS: Record<string, string> = {
   ACTIVO: 'Activo',
@@ -44,7 +45,8 @@ export async function getAll(userId: string, role: string) {
   }
 
   const casos = await casosRepository.findAll(where);
-  return casos.map(transformCaso);
+  const sinVer = await contarSinVerPorCaso(casos, userId, role);
+  return casos.map((c) => ({ ...transformCaso(c), notificacionesPendientes: sinVer.get(c.id) ?? 0 }));
 }
 
 export async function getById(id: string, userId: string, role: string) {
@@ -103,6 +105,7 @@ export async function create(
   const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId, abogadosContraparte, demandados } = data;
 
   if (!titulo) return { error: 'El título es requerido', status: 400 as const };
+  if (estado === 'PENDIENTE') return { error: 'El estado "Pendiente" es automático: depende de las notificaciones sin ver.', status: 400 as const };
   if (!abogadoIds?.length) return { error: 'Se requiere al menos un abogado', status: 400 as const };
   if (!clienteIds?.length) return { error: 'Se requiere al menos un cliente', status: 400 as const };
 
@@ -212,6 +215,10 @@ export async function update(
   }
 
   const { titulo, descripcion, estado, numero, fechaInicio, fechaCierre, notas, abogadoIds, clienteIds, juzgadoId, abogadosContraparte, demandados } = data;
+
+  if (estado === 'PENDIENTE' && existing.estado !== 'PENDIENTE') {
+    return { error: 'El estado "Pendiente" es automático: depende de las notificaciones sin ver.', status: 400 as const };
+  }
 
   const numeroNormalizado = numero !== undefined && (numero as string) ? normalizeNurej(numero as string) : (numero as string | undefined);
   if (numeroNormalizado && numeroNormalizado !== existing.numero) {

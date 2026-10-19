@@ -60,3 +60,17 @@ export function getEstadoEfectivo(estado: CasoEstado, fechaCierre?: string | Dat
 
   return cierreStr <= hoyStr ? 'CONCLUIDO' : estado;
 }
+// Estado que se MUESTRA: parte del estado efectivo (fecha de cierre) y, si el
+// caso está activo pero tiene notificaciones sin ver, se muestra "Pendiente".
+export function getEstadoVisible(caso: {
+  estado: CasoEstado;
+  fechaCierre?: string | Date | null;
+  notificacionesPendientes?: number;
+}): CasoEstado {
+  const efectivo = getEstadoEfectivo(caso.estado, caso.fechaCierre);
+  if (efectivo === 'ACTIVO' && (caso.notificacionesPendientes ?? 0) > 0) return 'PENDIENTE';
+  return efectivo;
+}
+
+// "Pendiente" es automático; estos son los estados que el abogado elige a mano.
+export const CASO_ESTADOS_MANUALES = CASO_ESTADOS.filter((e) => e.value !== 'PENDIENTE');

@@ -82,3 +82,17 @@ export async function deleteNovedad(req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+export async function marcarVista(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const vista = req.body?.vista !== false; // por defecto marca como vista
+    const result = await novedadesService.marcarVista(req.params.id, vista, req.user!.id, req.user!.role, actor(req));
+    if ('error' in result) {
+      res.status(result.status ?? 500).json({ error: result.error });
+      return;
+    }
+    res.json({ leida: result.leida });
+  } catch (error) {
+    logger.error('NOVEDADES: error al marcar visto', { ...actor(req), error: (error as Error).message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
