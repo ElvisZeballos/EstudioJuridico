@@ -9,6 +9,7 @@ import { CASO_ESTADOS, getEstadoVisible } from '../constants/caso';
 import { FilterChips } from '../components/ui/FilterChips';
 import { DateRangeFilter } from '../components/ui/DateRangeFilter';
 import { VerMas } from '../components/ui/VerMas';
+import { ChevronToggle } from '../components/ui/ChevronToggle';
 import { presetToRange, enRango, type DatePreset } from '../utils/dates';
 
 const NOTIF_PAGE = 100; // notificaciones que se piden por tanda
@@ -603,6 +604,9 @@ export function Dashboard() {
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
                 {notificaciones.length}{notifHayMas ? '+' : ''}
               </span>
+                {(notificaciones.length > LISTA_RESUMEN || notifHayMas) && (
+                <ChevronToggle expandido={notifExpandido} onToggle={() => setNotifExpandido(v => !v)} label="Desplegar todas" />
+              )}
             </div>
             <DateRangeFilter
               preset={notifPreset}
@@ -1039,6 +1043,9 @@ export function Dashboard() {
                     <span className="ml-auto text-xs font-medium text-white bg-amber-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0">
                       {notificaciones.length}{notifHayMas ? '+' : ''}
                     </span>
+                      {(notificaciones.length > 5 || notifHayMas) && (
+                      <ChevronToggle expandido={notifExpandido} onToggle={() => setNotifExpandido(v => !v)} label="Desplegar todas" />
+                    )}
                   </div>
                   <DateRangeFilter
                     preset={notifPreset}
