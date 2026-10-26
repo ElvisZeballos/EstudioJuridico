@@ -354,6 +354,8 @@ export function Dashboard() {
   const [notifHayMas, setNotifHayMas] = useState(false);
   const [notifCargandoMas, setNotifCargandoMas] = useState(false);
   const [notifExpandido, setNotifExpandido] = useState(false);
+  const [notifPlegado, setNotifPlegado] = useState(false);
+  const [casosPlegado, setCasosPlegado] = useState(false);
   const [casosExpandido, setCasosExpandido] = useState(false);
   const [agendaExpandida, setAgendaExpandida] = useState(false);
   const [previewCtx, setPreviewCtx] = useState<{ files: { nombre: string; driveId: string; driveUrl: string; tipo: 'pdf' | 'imagen' }[]; idx: number } | null>(null);
@@ -604,10 +606,10 @@ export function Dashboard() {
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
                 {notificaciones.length}{notifHayMas ? '+' : ''}
               </span>
-                {(notificaciones.length > LISTA_RESUMEN || notifHayMas) && (
-                <ChevronToggle expandido={notifExpandido} onToggle={() => setNotifExpandido(v => !v)} label="Desplegar todas" />
-              )}
+              <ChevronToggle expandido={!notifPlegado} onToggle={() => setNotifPlegado(v => !v)} label="Mostrar notificaciones" />
             </div>
+            {!notifPlegado && (
+            <div>
             <DateRangeFilter
               preset={notifPreset}
               desde={notifRango.desde}
@@ -663,6 +665,8 @@ export function Dashboard() {
                 </button>
               </div>
             )}
+            </div>
+            )}
           </Card>
         )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -682,14 +686,18 @@ export function Dashboard() {
                     </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
                 <Link
                   to="/casos"
                   className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-medium"
                 >
                   Ver todos <IconArrowRight />
                 </Link>
+                <ChevronToggle expandido={!casosPlegado} onToggle={() => setCasosPlegado(v => !v)} label="Mostrar casos" />
+                </div>
               </div>
-
+              {!casosPlegado && (
+              <div>
               {!casosLoading && casos.length > 0 && (
                 <FilterChips
                   options={casoChips}
@@ -767,6 +775,8 @@ export function Dashboard() {
                   visibles={LISTA_RESUMEN}
                   onToggle={() => setCasosExpandido(v => !v)}
                 />
+              )}
+              </div>
               )}
             </Card>
           </div>
@@ -915,11 +925,15 @@ export function Dashboard() {
                   </div>
                   Mis Casos
                 </h2>
+                <div className="flex items-center gap-2">
                 <Link to="/casos" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium flex items-center gap-1">
                   Ver todos <IconArrowRight />
                 </Link>
+                <ChevronToggle expandido={!casosPlegado} onToggle={() => setCasosPlegado(v => !v)} label="Mostrar casos" />
+                </div>
               </div>
-
+              {!casosPlegado && (
+              <div>
               {!casosLoading && casos.length > 0 && (
                 <FilterChips
                   options={casoChips}
@@ -980,6 +994,8 @@ export function Dashboard() {
                   visibles={LISTA_RESUMEN}
                   onToggle={() => setCasosExpandido(v => !v)}
                 />
+              )}
+              </div>
               )}
             </Card>
 
@@ -1043,10 +1059,10 @@ export function Dashboard() {
                     <span className="ml-auto text-xs font-medium text-white bg-amber-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0">
                       {notificaciones.length}{notifHayMas ? '+' : ''}
                     </span>
-                      {(notificaciones.length > 5 || notifHayMas) && (
-                      <ChevronToggle expandido={notifExpandido} onToggle={() => setNotifExpandido(v => !v)} label="Desplegar todas" />
-                    )}
+                    <ChevronToggle expandido={!notifPlegado} onToggle={() => setNotifPlegado(v => !v)} label="Mostrar notificaciones" />
                   </div>
+                  {!notifPlegado && (
+                  <div>
                   <DateRangeFilter
                     preset={notifPreset}
                     desde={notifRango.desde}
@@ -1096,6 +1112,8 @@ export function Dashboard() {
                         {notifCargandoMas ? 'Cargando...' : 'Cargar notificaciones más antiguas'}
                       </button>
                     </div>
+                  )}
+                   </div>
                   )}
                 </Card>
               )}
