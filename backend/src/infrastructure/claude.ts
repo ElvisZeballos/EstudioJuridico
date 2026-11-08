@@ -67,8 +67,9 @@ IMPORTANTE SOBRE EL NÚMERO DE PROCESO: en los procesos civiles antiguos, el nú
 "IANUS: 3015228"). IANUS y NUREJ son lo mismo: el código único del proceso, solo que antes se llamaba IANUS y ahora se llama NUREJ. Si el documento
 trae un número con la etiqueta IANUS (y no trae NUREJ), usalo como NUREJ. Si trae los dos, preferí el NUREJ. No confundas este número con otros
 números del documento (número de auto de vista, folios, testimonios, códigos de sello o código de barras): solo vale el que está rotulado como
-NUREJ, IANUS o número de expediente/causa.
+NUREJ, IANUS, CUD o número de expediente/causa.
 
+IMPORTANTE SOBRE PROCESOS PENALES: en los casos penales, el número que identifica el proceso se llama "CUD". Un proceso tiene un solo número identificador: los penales traen CUD, y los civiles o familiares traen NUREJ o IANUS. Si el documento trae un número rotulado como CUD, usalo como el valor de "nurej". No lo confundas con otros números del documento (folios, números de oficio, códigos de sello o código de barras).
 Usá la herramienta "extraer_notificacion" para devolver los datos extraídos.`;
 
 const TOOL_DEFINITION: Anthropic.Tool = {
@@ -77,7 +78,7 @@ const TOOL_DEFINITION: Anthropic.Tool = {
   input_schema: {
     type: 'object',
     properties: {
-      nurej: { type: ['string', 'null'], description: 'NUREJ (o IANUS, que es el nombre antiguo del mismo número) o número de expediente si aparece en el documento' },
+      nurej: { type: ['string', 'null'], description: 'NUREJ (o IANUS, que es el nombre antiguo del mismo número; o CUD, que es el código de los casos penales) o número de expediente si aparece en el documento' },
         "esEvento": {
         type: 'boolean',
         description: 'true SOLO si el documento fija una fecha y hora concreta a la que el abogado debe atender, sea presencial O VIRTUAL (una audiencia, una inspección, una reunión de conciliación, una videollamada, una reunión con un conciliador o mediador, o cualquier otro acto procesal con fecha y hora fija). No asumas que tiene que ser presencial — si el documento dice que es virtual, igual es esEvento: true. false si solo hay un plazo para responder por escrito, o no hay fecha relevante.',

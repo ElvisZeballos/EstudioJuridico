@@ -204,7 +204,7 @@ export function Casos() {
       {/* Búsqueda y filtro */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Input
-          placeholder="Buscar por título, NUREJ o cliente..."
+          placeholder="Buscar por título, NUREJ, CUD o cliente..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           leftIcon={
@@ -475,7 +475,7 @@ export function Casos() {
               containerClassName="col-span-2"
             />
             <Input
-              label="Nurej"
+              label="Nurej / CUD"
               value={form.numero ?? ''}
               onChange={(e) => setForm((p) => ({ ...p, numero: e.target.value }))}
               placeholder="Ej: 12345/2024"

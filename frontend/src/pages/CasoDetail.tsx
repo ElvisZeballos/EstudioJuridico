@@ -360,7 +360,7 @@ export function CasoDetail() {
                   </span>
                   {caso.numero && (
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                      Nurej #{caso.numero}
+                      Nurej / CUD #{caso.numero}
                     </span>
                   )}
                 </div>
@@ -983,7 +983,7 @@ export function CasoDetail() {
               containerClassName="col-span-2"
             />
             <Input
-              label="Nurej"
+              label="Nurej / CUD"
               value={form.numero}
               onChange={(e) => setForm({ ...form, numero: e.target.value })}
               placeholder="Ej: 12345/2024"
