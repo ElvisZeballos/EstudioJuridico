@@ -115,6 +115,35 @@ export async function processAiResults(userDir: string, userId: string): Promise
       }
 
       // ── 3. Email al abogado ─────────────────────────────────────────────────
+      // ── Fecha y hora de notificación ────────────────────────────────────────
+      // Es el momento en que el mensaje llegó por WhatsApp (hora de Bolivia), NO la
+      // fecha impresa en el documento. El plazo se cuenta desde el día hábil siguiente.
+      const recibida = resp.recibidaAt ? new Date(resp.recibidaAt) : new Date();
+      const diaNotificacion = recibida.toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' }); // AAAA-MM-DD
+      const fechaBase = new Date(`${diaNotificacion}T12:00:00.000Z`); // mediodía UTC: evita saltos de día
+      const [anioN, mesN, diaN] = diaNotificacion.split('-');
+      const diaSemanaN = new Intl.DateTimeFormat('es-BO', { timeZone: 'America/La_Paz', weekday: 'long' }).format(recibida);
+      const horaNotificacion = recibida.toLocaleTimeString('en-GB', {
+        timeZone: 'America/La_Paz',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      });
+      const fechaNotificacionTexto = `${diaSemanaN} ${diaN}/${mesN}/${anioN}`;
+      const encabezadoNotificacion = `Fecha de notificación: ${fechaNotificacionTexto}\nHora de notificación: ${horaNotificacion}`;
+      const fechaDocumentoTexto =
+        resp.fechaDocumento && /^\d{4}-\d{2}-\d{2}$/.test(resp.fechaDocumento)
+          ? resp.fechaDocumento.split('-').reverse().join('/')
+          : 'no identificada';
+      const encabezadoAbogado = `Fecha del documento: ${fechaDocumentoTexto}\n${encabezadoNotificacion}`;
+      const avisos: string[] = [];
+      if (!resp.recibidaAt) {
+        avisos.push('⚠️ No se pudo determinar cuándo llegó el mensaje: se usó la fecha de procesamiento como fecha de notificación.');
+      }
+      if (resp.agrupacionDudosa) {
+        avisos.push('⚠️ Revisá los archivos adjuntos: no fue posible asegurar a qué proceso pertenecen algunas páginas de este envío.');
+      }
+      const avisoTexto = avisos.length > 0 ? avisos.join('\n') + '\n\n' : '';
       const asunto = `Notificación${resp.juzgado ? ` - ${resp.juzgado}` : ''}`;
 
       const abogadosDestino = caso?.abogados.map((ca) => ca.abogado) ?? [
@@ -141,7 +170,7 @@ export async function processAiResults(userDir: string, userId: string): Promise
 
       const html = `<div style="font-family:Arial,sans-serif;max-width:600px">
         <h2>${asunto}</h2>
-        <p style="white-space:pre-line">${resp.resumenAbogado}</p>
+        <p style="white-space:pre-line">${encabezadoAbogado}\n\n${avisoTexto}${resp.resumenAbogado}</p>
         ${driveHtml}
       </div>`;
 
@@ -196,24 +225,8 @@ export async function processAiResults(userDir: string, userId: string): Promise
           resp.esEvento && resp.fecha && resp.hora
             ? new Date(`${resp.fecha}T${resp.hora}:00-04:00`)
             : null;
-
-        // Fecha base para calcular el plazo: la que extrajo la IA del propio
-        // documento, o la de procesamiento si no encontró ninguna — con aviso
-        // visible en ese caso, para que quede claro que es un fallback.
-        let fechaBaseWarning = '';
-        let fechaBase: Date;
-        if (resp.fecha) {
-          fechaBase = new Date(`${resp.fecha}T12:00:00.000Z`); // mediodía UTC = mediodía Bolivia, evita saltos de día
-        } else {
-          fechaBase = new Date();
-          fechaBaseWarning =
-            `⚠️ No se identificó una fecha de envío explícita en el documento — se usó la fecha de ` +
-            `procesamiento (${fechaBase.toLocaleDateString('es-BO', { timeZone: 'America/La_Paz' })}) ` +
-            `como base para calcular el plazo.\n\n`;
-        }
-
         const contenido =
-          fechaBaseWarning +
+          encabezadoNotificacion + '\n\n' + avisoTexto +
           resp.resumenGeneral +
           (driveFiles.length > 0
             ? '\n\nArchivos:\n' + driveFiles.map((f) => `- ${f.nombre}: ${f.driveUrl}`).join('\n')
@@ -276,7 +289,7 @@ export async function processAiResults(userDir: string, userId: string): Promise
               titulo: tituloRecordatorio,
               contenido:
                 `Plazo de ${plazoDias} día(s) ${plazoUnidad === 'corridos' ? 'corridos' : 'hábiles'} ` +
-                `a partir de la notificación del proceso "${caso.titulo}"` +
+                `desde el día siguiente a la notificación (${fechaNotificacionTexto}) del proceso "${caso.titulo}"` +
                 (resp.plazoDias == null ? ' (plazo por defecto — el documento no especificó uno explícito).' : '.'),
               fecha: fechaLimiteConHora,
               fechaAgendada: fechaLimiteConHora,

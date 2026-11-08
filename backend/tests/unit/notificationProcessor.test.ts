@@ -37,6 +37,8 @@ function casoConTelefono(telefono: string | null) {
 function analisis(over: Record<string, unknown> = {}) {
   return {
     nurej: '30396431-1',
+    fechaDocumento: '2026-10-02',
+    recibidaAt: '2026-10-05T18:30:00.000Z', // 14:30 en Bolivia → fecha de notificación: lunes 05/10/2026
     fecha: '2026-10-05',
     esEvento: false,
     tipoEvento: null,
@@ -247,10 +249,49 @@ describe('calendarización: eventos reales vs. recordatorios de plazo', () => {
     expect(sumarDiasHabiles).not.toHaveBeenCalled();
   });
 
-  test('sin fecha en el documento → usa la fecha de procesamiento y deja un aviso visible en la novedad', async () => {
-    await procesar(analisis({ fecha: null }));
+  test('sin hora de llegada del mensaje → usa la fecha de procesamiento y deja un aviso visible en la novedad', async () => {
+    await procesar(analisis({ recibidaAt: undefined }));
     const [{ data }] = prismaMock.casoNovedad.create.mock.calls[0];
-    expect(data.contenido).toContain('No se identificó una fecha de envío explícita');
+    expect(data.contenido).toContain('No se pudo determinar cuándo llegó el mensaje');
+  });
+
+  test('el plazo se cuenta desde el día en que llegó el WhatsApp (hora de Bolivia), no desde la fecha impresa en el documento', async () => {
+    // Llegó el jueves 05/11 a las 22:30 en Bolivia (= viernes 06/11 02:30 UTC): el día de notificación sigue siendo el 05/11.
+    await procesar(analisis({ fecha: '2026-03-20', fechaDocumento: '2026-03-20', recibidaAt: '2026-11-06T02:30:00.000Z' }));
+    expect(sumarDiasHabiles).toHaveBeenCalledWith(new Date('2026-11-05T12:00:00.000Z'), 3);
+  });
+
+  test('la novedad lleva la fecha y la hora de notificación como encabezado, sin la fecha del documento', async () => {
+    await procesar(analisis({ recibidaAt: '2026-11-05T18:35:00.000Z' })); // 14:35 en Bolivia, jueves 05/11/2026
+    const [{ data }] = prismaMock.casoNovedad.create.mock.calls[0];
+    expect(data.contenido.startsWith('Fecha de notificación: jueves 05/11/2026\nHora de notificación: 14:35')).toBe(true);
+    expect(data.contenido).not.toContain('Fecha del documento');
+  });
+
+  test('el email al abogado muestra siempre la fecha del documento y la de notificación', async () => {
+    await procesar(analisis({ fechaDocumento: '2026-10-02', recibidaAt: '2026-11-05T18:35:00.000Z' }));
+    const html = sendEmailWithAttachments.mock.calls[0][2] as string;
+    expect(html).toContain('Fecha del documento: 02/10/2026');
+    expect(html).toContain('Fecha de notificación: jueves 05/11/2026');
+    expect(html).toContain('Hora de notificación: 14:35');
+  });
+
+  test('si el documento no trae fecha, el email lo dice explícitamente en vez de omitirlo', async () => {
+    await procesar(analisis({ fechaDocumento: null }));
+    const html = sendEmailWithAttachments.mock.calls[0][2] as string;
+    expect(html).toContain('Fecha del documento: no identificada');
+  });
+
+  test('agrupación dudosa → aviso visible en el email y en la novedad', async () => {
+    await procesar(analisis({ agrupacionDudosa: true }));
+    expect(sendEmailWithAttachments.mock.calls[0][2]).toContain('Revisá los archivos adjuntos');
+    expect(prismaMock.casoNovedad.create.mock.calls[0][0].data.contenido).toContain('Revisá los archivos adjuntos');
+  });
+
+  test('el recordatorio aclara que el plazo corre desde el día siguiente a la notificación', async () => {
+    await procesar(analisis({ recibidaAt: '2026-11-05T18:35:00.000Z' }));
+    const recordatorio = prismaMock.casoNovedad.create.mock.calls[1][0].data;
+    expect(recordatorio.contenido).toContain('desde el día siguiente a la notificación (jueves 05/11/2026)');
   });
 
   test('sin token de Google del abogado no se intenta crear evento en Calendar', async () => {
