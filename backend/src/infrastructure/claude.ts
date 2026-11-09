@@ -198,6 +198,24 @@ export function repartirNotificaciones(
   return resultado;
 }
 
+/** La IA a veces devuelve "notificaciones" como texto JSON, como un solo objeto
+ *  o con los campos sueltos (sin la lista). Se acepta cualquiera de las formas. */
+export function normalizarLista(input: unknown): NotificacionIA[] {
+  const inp = (input ?? {}) as Record<string, unknown>;
+  let n: unknown = inp.notificaciones;
+  if (typeof n === 'string') {
+    try {
+      n = JSON.parse(n);
+    } catch {
+      n = undefined;
+    }
+  }
+  if (Array.isArray(n)) return n as NotificacionIA[];
+  if (n && typeof n === 'object') return [n as NotificacionIA];
+  if ('resumenAbogado' in inp) return [inp as unknown as NotificacionIA];
+  return [];
+}
+
 function getTomorrowDate(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
@@ -365,9 +383,10 @@ export async function analyzeNotifications(userDir: string): Promise<void> {
         throw new Error('Claude no devolvió el resultado con la herramienta esperada');
       }
 
-      const lista = (toolUse.input as { notificaciones?: NotificacionIA[] }).notificaciones;
+      const lista = normalizarLista(toolUse.input);
       if (!Array.isArray(lista) || lista.length === 0) {
-        throw new Error('Claude no devolvió ninguna notificación');
+        logger.error(`Claude: respuesta sin notificaciones (stop_reason: ${response.stop_reason}) — ${JSON.stringify(toolUse.input).slice(0, 1500)}`);
+          throw new Error('Claude no devolvió ninguna notificación');
       }
       repartirNotificaciones(lista, incluidos, mediaFiles, conv).forEach((notif, j) => {
         responses[`${key}_${j + 1}`] = notif;

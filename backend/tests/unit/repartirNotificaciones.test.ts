@@ -1,7 +1,7 @@
 // tests/setup/mocks.ts reemplaza claude.ts por un mock global; aquí se necesita el módulo real.
 jest.unmock('../../src/infrastructure/claude');
 jest.mock('sharp', () => ({ __esModule: true, default: jest.fn() })); // no hace falta procesar imágenes aquí
-import { repartirNotificaciones } from '../../src/infrastructure/claude';
+import { repartirNotificaciones, normalizarLista } from '../../src/infrastructure/claude';
 
 const msg = (n: number, hora: string, deMi = false) => ({
   timestamp: `2026-11-05T${hora}:00.000Z`,
@@ -71,5 +71,26 @@ describe('repartirNotificaciones', () => {
     const r = repartirNotificaciones([base('111', [])], [], [], c);
     expect(r[0].media).toEqual([]);
     expect(r[0].recibidaAt).toBe('2026-11-05T13:50:00.000Z');
+  });
+}); 
+describe('normalizarLista (formas en que la IA puede devolver la respuesta)', () => {
+  const n = { nurej: '111', resumenAbogado: 'a' };
+
+  test('lista normal', () => {
+    expect(normalizarLista({ notificaciones: [n, n] })).toHaveLength(2);
+  });
+  test('lista devuelta como texto JSON', () => {
+    expect(normalizarLista({ notificaciones: JSON.stringify([n]) })).toEqual([n]);
+  });
+  test('un solo objeto en vez de lista', () => {
+    expect(normalizarLista({ notificaciones: n })).toEqual([n]);
+  });
+  test('campos sueltos sin la lista', () => {
+    expect(normalizarLista(n)).toEqual([n]);
+  });
+  test('texto inválido o vacío → lista vacía', () => {
+    expect(normalizarLista({ notificaciones: 'no es json' })).toEqual([]);
+    expect(normalizarLista({})).toEqual([]);
+    expect(normalizarLista(null)).toEqual([]);
   });
 });
