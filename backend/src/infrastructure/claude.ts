@@ -229,6 +229,7 @@ export function normalizarLista(input: unknown): NotificacionIA[] {
   }
   if (Array.isArray(n)) return n.map(aNotificacion).filter((x): x is NotificacionIA => x !== null);
   if (n && typeof n === 'object') {
+    if ('notificaciones' in n) return normalizarLista(n);
     const uno = aNotificacion(n);
     return uno ? [uno] : [];
   }

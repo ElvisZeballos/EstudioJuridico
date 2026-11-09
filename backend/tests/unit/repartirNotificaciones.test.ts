@@ -106,3 +106,17 @@ describe('normalizarLista descarta entradas inválidas', () => {
     expect(normalizarLista({ notificaciones: [{ nurej: '1' }, n] })).toEqual([n]);
   });
 });
+describe('normalizarLista con la respuesta doblemente envuelta (caso real de producción)', () => {
+  const n = { nurej: '30487335-1', resumenAbogado: 'Memorial…', archivos: [1, 2, 3, 4, 5, 6], agrupacionDudosa: false };
+
+  test('texto que contiene un objeto con la lista', () => {
+    const crudo = { notificaciones: JSON.stringify({ notificaciones: [n] }) };
+    expect(normalizarLista(crudo)).toEqual([n]);
+  });
+  test('texto que contiene directamente la lista', () => {
+    expect(normalizarLista({ notificaciones: JSON.stringify([n]) })).toEqual([n]);
+  });
+  test('texto que contiene un solo objeto', () => {
+    expect(normalizarLista({ notificaciones: JSON.stringify(n) })).toEqual([n]);
+  });
+});
