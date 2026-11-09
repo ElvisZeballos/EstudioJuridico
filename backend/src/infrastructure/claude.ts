@@ -198,6 +198,23 @@ export function repartirNotificaciones(
   return resultado;
 }
 
+/** Una entrada de la lista solo vale si es un objeto (o texto JSON de un objeto)
+ *  con el resumen para el abogado; cualquier otra cosa se descarta. */
+function aNotificacion(x: unknown): NotificacionIA | null {
+  let v: unknown = x;
+  if (typeof v === 'string') {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      return null;
+    }
+  }
+  if (v && typeof v === 'object' && typeof (v as Record<string, unknown>).resumenAbogado === 'string') {
+    return v as NotificacionIA;
+  }
+  return null;
+}
+
 /** La IA a veces devuelve "notificaciones" como texto JSON, como un solo objeto
  *  o con los campos sueltos (sin la lista). Se acepta cualquiera de las formas. */
 export function normalizarLista(input: unknown): NotificacionIA[] {
@@ -210,8 +227,11 @@ export function normalizarLista(input: unknown): NotificacionIA[] {
       n = undefined;
     }
   }
-  if (Array.isArray(n)) return n as NotificacionIA[];
-  if (n && typeof n === 'object') return [n as NotificacionIA];
+  if (Array.isArray(n)) return n.map(aNotificacion).filter((x): x is NotificacionIA => x !== null);
+  if (n && typeof n === 'object') {
+    const uno = aNotificacion(n);
+    return uno ? [uno] : [];
+  }
   if ('resumenAbogado' in inp) return [inp as unknown as NotificacionIA];
   return [];
 }
@@ -383,6 +403,7 @@ export async function analyzeNotifications(userDir: string): Promise<void> {
         throw new Error('Claude no devolvió el resultado con la herramienta esperada');
       }
 
+      logger.info(`Claude: respuesta cruda — ${JSON.stringify(toolUse.input).slice(0, 3000)}`);
       const lista = normalizarLista(toolUse.input);
       if (!Array.isArray(lista) || lista.length === 0) {
         logger.error(`Claude: respuesta sin notificaciones (stop_reason: ${response.stop_reason}) — ${JSON.stringify(toolUse.input).slice(0, 1500)}`);

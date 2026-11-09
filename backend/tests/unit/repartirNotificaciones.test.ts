@@ -94,3 +94,15 @@ describe('normalizarLista (formas en que la IA puede devolver la respuesta)', ()
     expect(normalizarLista(null)).toEqual([]);
   });
 });
+describe('normalizarLista descarta entradas inválidas', () => {
+  const n = { nurej: '111', resumenAbogado: 'a' };
+
+  test('entradas que son texto JSON de un objeto válido se aceptan', () => {
+    expect(normalizarLista({ notificaciones: [JSON.stringify(n)] })).toEqual([n]);
+  });
+  test('entradas sin resumenAbogado o que no son objetos se descartan (nunca llega "undefined" al correo)', () => {
+    expect(normalizarLista({ notificaciones: [{}] })).toEqual([]);
+    expect(normalizarLista({ notificaciones: ['texto suelto'] })).toEqual([]);
+    expect(normalizarLista({ notificaciones: [{ nurej: '1' }, n] })).toEqual([n]);
+  });
+});
